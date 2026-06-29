@@ -4,12 +4,25 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "CAPTURE_CONTEXT") {
-    console.log("Received context from content script:", message.data);
+    console.log("Received context from content script, sending to Kyro backend:", message.data);
     
-    // In the future: Send this data to our local Python backend
-    // fetch('http://localhost:8000/api/capture', { ... })
+    fetch('http://localhost:8000/api/capture', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message.data)
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('Success:', data);
+      sendResponse({ status: "success", data });
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+      sendResponse({ status: "error", error: error.toString() });
+    });
     
-    sendResponse({ status: "success" });
+    return true; // Keep the message channel open for async response
   }
-  return true;
 });
