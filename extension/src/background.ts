@@ -2,7 +2,7 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log("Kyro Context Tracker installed.");
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: any, _sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
   if (message.type === "CAPTURE_CONTEXT") {
     console.log("Received context from content script, sending to Kyro backend:", message.data);
     

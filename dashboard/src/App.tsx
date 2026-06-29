@@ -122,41 +122,117 @@ function App() {
             </div>
             
             {activeTab === 'Chat' && (
-              <div className="mt-16 glass-card rounded-2xl p-6 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Sparkles size={120} className="text-blue-400" />
-                </div>
-                
-                <div className="flex gap-4 mb-6 relative z-10">
-                  <div className="relative">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-30"></div>
-                    <div className="relative w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center text-white flex-shrink-0 shadow-md">
-                      <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400">K</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-white font-semibold mb-1">Kyro AI</p>
-                    <p className="text-[15px] text-zinc-400 leading-relaxed">Hello! I have access to your personal context operating system. What would you like to recall today?</p>
-                  </div>
-                </div>
-                
-                <div className="relative mt-4 z-10">
-                  <input 
-                    type="text" 
-                    placeholder="Ask Kyro anything..." 
-                    onFocus={() => setIsTyping(true)}
-                    onBlur={() => setIsTyping(false)}
-                    className={`w-full bg-zinc-900/50 border ${isTyping ? 'border-blue-500/50 ring-4 ring-blue-500/10' : 'border-white/10'} rounded-xl pl-4 pr-12 py-3 text-[15px] text-white focus:outline-none transition-all shadow-inner backdrop-blur-md placeholder:text-zinc-600`} 
-                  />
-                  <button className={`absolute right-3 top-3 p-1 rounded-lg transition-all ${isTyping ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/20' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
-                    <Sparkles size={18} />
-                  </button>
-                </div>
-              </div>
+              <ChatComponent />
             )}
             
           </div>
         </main>
+      </div>
+    </div>
+  );
+}
+
+function ChatComponent() {
+  const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [relatedMemories, setRelatedMemories] = useState<{id: string, label: string}[]>([]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    const userMsg = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...messages, userMsg] })
+      });
+      const data = await response.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+      if (data.related_memories) setRelatedMemories(data.related_memories);
+    } catch (err) {
+      console.error(err);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Error connecting to Kyro brain." }]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="mt-16 glass-card rounded-2xl p-6 relative overflow-hidden group flex flex-col">
+      <div className="absolute top-0 right-0 p-4 opacity-10">
+        <Sparkles size={120} className="text-blue-400" />
+      </div>
+      
+      <div className="flex-1 space-y-6 overflow-y-auto mb-6 relative z-10 min-h-[300px]">
+        {messages.length === 0 && (
+          <div className="flex gap-4">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-30"></div>
+              <div className="relative w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center text-white flex-shrink-0 shadow-md">
+                <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400">K</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-white font-semibold mb-1">Kyro AI</p>
+              <p className="text-[15px] text-zinc-400 leading-relaxed">Hello! I have access to your personal context operating system. What would you like to recall today?</p>
+            </div>
+          </div>
+        )}
+        
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className="relative flex-shrink-0">
+              {msg.role === 'assistant' && <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-30"></div>}
+              <div className={`relative w-10 h-10 rounded-xl ${msg.role === 'user' ? 'bg-gradient-to-tr from-blue-500 to-purple-500' : 'bg-zinc-900 border border-white/10'} flex items-center justify-center text-white shadow-md`}>
+                {msg.role === 'user' ? <User size={20} /> : <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400">K</span>}
+              </div>
+            </div>
+            <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+              <p className="text-sm text-white font-semibold mb-1">{msg.role === 'user' ? 'You' : 'Kyro AI'}</p>
+              <div className={`px-4 py-3 rounded-2xl max-w-lg ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-zinc-800/80 text-zinc-300'}`}>
+                {msg.content}
+              </div>
+            </div>
+          </div>
+        ))}
+        {loading && <div className="text-zinc-500 text-sm italic pl-14">Kyro is thinking...</div>}
+        
+        {relatedMemories.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+          <div className="pl-14 mt-4">
+            <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Sources</p>
+            <div className="flex flex-wrap gap-2">
+              {relatedMemories.map(mem => (
+                <span key={mem.id} className="text-xs px-2 py-1 bg-white/5 border border-white/10 rounded-md text-zinc-400">
+                  {mem.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="relative mt-auto z-10 pt-4 border-t border-white/5">
+        <input 
+          type="text" 
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleSend()}
+          placeholder="Ask Kyro anything..." 
+          onFocus={() => setIsTyping(true)}
+          onBlur={() => setIsTyping(false)}
+          className={`w-full bg-zinc-900/50 border ${isTyping ? 'border-blue-500/50 ring-4 ring-blue-500/10' : 'border-white/10'} rounded-xl pl-4 pr-12 py-3 text-[15px] text-white focus:outline-none transition-all shadow-inner backdrop-blur-md placeholder:text-zinc-600`} 
+        />
+        <button 
+          onClick={handleSend}
+          disabled={loading}
+          className={`absolute right-3 top-7 p-1.5 rounded-lg transition-all ${isTyping ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/20' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
+          <Sparkles size={18} className={loading ? "animate-spin" : ""} />
+        </button>
       </div>
     </div>
   );
