@@ -1,55 +1,132 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react';
+import { Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw, Zap } from 'lucide-react';
 
 function App() {
-  const [isActive, setIsActive] = useState(true)
+  const [isActive, setIsActive] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Simulate a random sync pulse
+  useEffect(() => {
+    if (!isActive) return;
+    const interval = setInterval(() => {
+      setIsSyncing(true);
+      setTimeout(() => setIsSyncing(false), 2000);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isActive]);
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-white p-4 font-sans border border-zinc-800 rounded-lg">
-      <header className="flex items-center justify-between pb-4 border-b border-zinc-800">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-blue-500 rounded-sm flex items-center justify-center font-bold text-xs">K</div>
-          <h1 className="text-lg font-semibold tracking-tight">Kyro</h1>
+    <div className="flex flex-col h-screen bg-gradient-animate text-white overflow-hidden relative">
+      {/* Decorative ambient light */}
+      <div className="absolute top-0 left-1/4 w-64 h-64 bg-blue-600/20 rounded-full blur-[80px] pointer-events-none"></div>
+      <div className="absolute bottom-0 right-0 w-48 h-48 bg-purple-600/20 rounded-full blur-[60px] pointer-events-none"></div>
+
+      {/* Header */}
+      <header className="glass-panel px-5 py-4 flex items-center justify-between z-10 sticky top-0 border-b-0 border-white/10 rounded-b-2xl shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
+            <div className="relative w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center border border-white/10">
+              <span className="font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 text-sm">K</span>
+            </div>
+          </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-white leading-tight">Kyro</h1>
+            <p className="text-[10px] text-blue-300/80 font-medium tracking-wide uppercase">Context OS</p>
+          </div>
         </div>
+        
         <button 
           onClick={() => setIsActive(!isActive)}
-          className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${isActive ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 shadow-sm border ${
+            isActive 
+              ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50 hover:shadow-[0_0_10px_rgba(59,130,246,0.3)]' 
+              : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300'
+          }`}
         >
-          {isActive ? 'Tracking Active' : 'Paused'}
+          <Power size={12} className={isActive ? 'animate-pulse' : ''} />
+          {isActive ? 'Active' : 'Paused'}
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto py-4 space-y-4">
-        <div className="bg-zinc-900 rounded-lg p-3 border border-zinc-800/50 shadow-sm">
-          <h2 className="text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Recent Captures</h2>
-          <ul className="space-y-2">
-            <li className="flex items-start gap-2 text-sm text-zinc-300 bg-black/40 p-2 rounded border border-white/5">
-              <span className="text-blue-400 mt-0.5">●</span>
-              <span>GitHub: Cognee Architecture Repository</span>
-            </li>
-            <li className="flex items-start gap-2 text-sm text-zinc-300 bg-black/40 p-2 rounded border border-white/5">
-              <span className="text-green-400 mt-0.5">●</span>
-              <span>Medium: "Vector Databases Explained"</span>
-            </li>
-          </ul>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto px-4 py-5 space-y-4 z-10">
+        
+        {/* Status Card */}
+        <div className="glass-panel rounded-xl p-4 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          
+          <div className="flex justify-between items-start mb-3">
+            <h2 className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+              <Activity size={14} className={isActive ? 'text-emerald-400' : 'text-zinc-500'} />
+              Connection
+            </h2>
+            {isSyncing && isActive && (
+              <span className="flex items-center gap-1 text-[10px] text-blue-400 font-medium animate-pulse">
+                <RefreshCw size={10} className="animate-spin" /> Syncing
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className={`relative flex h-3 w-3 ${!isActive && 'opacity-50'}`}>
+              {isActive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${isActive ? 'bg-emerald-500' : 'bg-zinc-600'}`}></span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">{isActive ? 'Connected to Kyro Brain' : 'Offline Mode'}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{isActive ? 'Capturing context in real-time' : 'Tracking paused by user'}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-zinc-900 rounded-lg p-3 border border-zinc-800/50">
-          <h2 className="text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Connection Status</h2>
-          <div className="flex items-center gap-2 text-sm text-emerald-400">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            Connected to Kyro Brain (Local)
+        {/* Captures Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Database size={14} /> Recent Context
+            </h2>
+            <span className="text-[10px] text-zinc-500 font-medium">Last 1h</span>
+          </div>
+          
+          <div className="space-y-2">
+            {[
+              { title: "GitHub: Cognee Architecture", icon: <ShieldCheck size={14} className="text-emerald-400" />, time: "2m ago" },
+              { title: "Medium: Vector DBs Explained", icon: <Zap size={14} className="text-blue-400" />, time: "14m ago" },
+              { title: "Local: dashboard/src/App.tsx", icon: <ShieldCheck size={14} className="text-emerald-400" />, time: "42m ago" }
+            ].map((item, i) => (
+              <div key={i} className="glass-card rounded-lg p-3 flex items-start gap-3 cursor-pointer">
+                <div className="mt-0.5 bg-zinc-800/50 p-1.5 rounded-md border border-white/5">
+                  {item.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">{item.time}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </main>
 
-      <footer className="pt-4 border-t border-zinc-800 flex justify-between items-center text-xs text-zinc-500">
-        <span>v1.0.0</span>
-        <a href="http://localhost:3000" target="_blank" rel="noreferrer" className="text-zinc-300 hover:text-white transition-colors">
-          Open Dashboard ↗
+      {/* Footer */}
+      <footer className="glass-panel px-4 py-3 z-10 flex justify-between items-center border-t border-white/10 mt-auto rounded-t-xl">
+        <button className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors">
+          <Settings size={16} />
+        </button>
+        
+        <a 
+          href="http://localhost:5173" 
+          target="_blank" 
+          rel="noreferrer" 
+          className="flex items-center gap-2 px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-medium text-white transition-all group"
+        >
+          Open Dashboard 
+          <ExternalLink size={12} className="text-zinc-400 group-hover:text-white transition-colors" />
         </a>
       </footer>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse
 from app.services.memory_service import add_memory, search_memories
-# from app.services.ai_service import generate_chat_response
+import google.generativeai as genai
+import os
+
+# Initialize Gemini
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+model = genai.GenerativeModel('gemini-1.5-pro')
 
 router = APIRouter()
 
@@ -24,13 +29,36 @@ async def chat(request: ChatRequest):
     Endpoint for the Next.js Dashboard to interact with the AI.
     """
     try:
-        # TODO: Retrieve relevant memories from Cognee based on latest message
-        # TODO: Generate response using Gemini bounding it to retrieved memories
         user_msg = request.messages[-1].content
+        
+        # 1. Retrieve relevant memories from Cognee
+        memories = await search_memories(user_msg)
+        
+        # Format memories for the prompt
+        context_text = ""
+        related_memories = []
+        if memories:
+            for i, mem in enumerate(memories):
+                context_text += f"[{i+1}] {mem.get('text', '')}\\n"
+                related_memories.append({"id": mem.get('id', str(i)), "label": mem.get('text', '')[:30] + "..."})
+                
+        # 2. Generate response using Gemini bounding it to retrieved memories
+        prompt = f"""You are Kyro, an AI assistant with a perfect memory powered by Cognee.
+        The user has asked a question. Answer it using ONLY the retrieved memories below.
+        If the memories do not contain the answer, say you don't remember any context about that.
+        
+        Retrieved Memories:
+        {context_text}
+        
+        User Question: {user_msg}
+        """
+        
+        response = model.generate_content(prompt)
+        
         return ChatResponse(
-            answer=f"Simulated response to: {user_msg}. (Cognee and Gemini integration pending)",
-            sources=[{"title": "Example Source", "url": "https://example.com"}],
-            related_memories=[{"id": "node_1", "label": "Example Concept"}]
+            answer=response.text,
+            sources=[],
+            related_memories=related_memories
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
