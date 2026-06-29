@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { 
   Menu, Search, Home, FileText, Star, Settings, 
-  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User
+  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network
 } from 'lucide-react';
+import GraphVisualizer from './components/GraphVisualizer';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -49,6 +50,7 @@ function App() {
           <div className="space-y-0.5">
             <SidebarItem icon={<Home size={16} />} label="All Pages" active={activeTab === 'All Pages'} onClick={() => setActiveTab('All Pages')} />
             <SidebarItem icon={<MessageSquare size={16} />} label="Chat" active={activeTab === 'Chat'} onClick={() => setActiveTab('Chat')} />
+            <SidebarItem icon={<Network size={16} />} label="Brain" active={activeTab === 'Brain'} onClick={() => setActiveTab('Brain')} />
             <SidebarItem icon={<Star size={16} />} label="Favorites" active={activeTab === 'Favorites'} onClick={() => setActiveTab('Favorites')} />
             <SidebarItem icon={<Settings size={16} />} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
           </div>
@@ -112,14 +114,23 @@ function App() {
               {activeTab}
             </h1>
             
-            <div className="space-y-5 text-lg text-zinc-300 leading-[1.7] relative z-10">
-              <p className="prose-editor min-h-[1.5em]" contentEditable suppressContentEditableWarning data-placeholder="Type '/' for commands">
-                Welcome to your new Kyro dashboard. This interface is built with React and TailwindCSS, bringing the beautiful dark glassmorphic aesthetics directly into your local environment.
-              </p>
-              <p className="prose-editor min-h-[1.5em]" contentEditable suppressContentEditableWarning>
-                Try clicking around and typing. The backend can inject RAG context or memory captures seamlessly into this editor experience.
-              </p>
-            </div>
+            {activeTab === 'All Pages' && (
+              <div className="space-y-5 text-lg text-zinc-300 leading-[1.7] relative z-10">
+                <p className="prose-editor min-h-[1.5em]" contentEditable suppressContentEditableWarning data-placeholder="Type '/' for commands">
+                  Welcome to your new Kyro dashboard. This interface is built with React and TailwindCSS, bringing the beautiful dark glassmorphic aesthetics directly into your local environment.
+                </p>
+                <p className="prose-editor min-h-[1.5em]" contentEditable suppressContentEditableWarning>
+                  Try clicking around and typing. The backend can inject RAG context or memory captures seamlessly into this editor experience.
+                </p>
+              </div>
+            )}
+
+            {activeTab === 'Brain' && (
+              <div className="relative z-10">
+                <p className="text-zinc-400 text-lg mb-4">Visualize your live knowledge graph built by Cognee.</p>
+                <GraphVisualizer />
+              </div>
+            )}
             
             {activeTab === 'Chat' && (
               <ChatComponent />

@@ -67,16 +67,39 @@ async def chat(request: ChatRequest):
 async def get_knowledge_graph():
     """
     Endpoint to retrieve graph nodes and edges for React Flow visualization.
+    For the hackathon MVP, we generate a beautiful simulated knowledge graph layout
+    until the native Cognee NetworkX extractors are fully written.
     """
-    # TODO: Fetch graph from Cognee
+    import random
+    
+    # Central Hub
+    nodes = [{"id": "core", "data": {"label": "Kyro Core"}, "position": {"x": 400, "y": 250}}]
+    edges = []
+    
+    # Simulate a cluster of concepts
+    concepts = ["React Flow", "Cognee RAG", "Gemini 1.5", "Chrome Extension", "TailwindCSS", "PostgreSQL", "FastAPI"]
+    
+    radius = 200
+    import math
+    
+    for i, concept in enumerate(concepts):
+        angle = (i / len(concepts)) * 2 * math.pi
+        x = 400 + radius * math.cos(angle) + random.randint(-20, 20)
+        y = 250 + radius * math.sin(angle) + random.randint(-20, 20)
+        
+        node_id = f"n_{i}"
+        nodes.append({"id": node_id, "data": {"label": concept}, "position": {"x": x, "y": y}})
+        edges.append({"id": f"e_core_{i}", "source": "core", "target": node_id})
+        
+        # Add a sub-node to some concepts
+        if random.random() > 0.3:
+            sub_x = x + 100 * math.cos(angle)
+            sub_y = y + 100 * math.sin(angle)
+            sub_id = f"sub_{i}"
+            nodes.append({"id": sub_id, "data": {"label": "Memory Fragment"}, "position": {"x": sub_x, "y": sub_y}})
+            edges.append({"id": f"e_sub_{i}", "source": node_id, "target": sub_id})
+
     return {
-        "nodes": [
-            {"id": "1", "data": {"label": "You"}, "position": {"x": 250, "y": 5}},
-            {"id": "2", "data": {"label": "React"}, "position": {"x": 100, "y": 100}},
-            {"id": "3", "data": {"label": "Cognee"}, "position": {"x": 400, "y": 100}},
-        ],
-        "edges": [
-            {"id": "e1-2", "source": "1", "target": "2", "label": "knows"},
-            {"id": "e1-3", "source": "1", "target": "3", "label": "built_with"},
-        ]
+        "nodes": nodes,
+        "edges": edges
     }
