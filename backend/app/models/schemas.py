@@ -47,3 +47,9 @@ class RecentCapturesResponse(BaseModel):
 class FeedbackRequest(BaseModel):
     memory_ids: List[str] = Field(..., description="The IDs of the memories used for the response")
     rating: int = Field(..., description="1 for Thumbs Up, -1 for Thumbs Down")
+
+class CustomIngestionRequest(BaseModel):
+    title: str = Field(..., min_length=1, description="Title of the custom document")
+    text: str = Field(..., min_length=1, description="The core text content to ingest")
+    url: Optional[str] = Field("custom://api-ingest", description="Optional source URL or identifier")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional extra JSON metadata")

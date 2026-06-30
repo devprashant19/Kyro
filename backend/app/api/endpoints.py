@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse, FeedbackRequest
+from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse, FeedbackRequest, CustomIngestionRequest
 from app.services.memory_service import add_memory, search_memories, prune_stale_memories
 import google.generativeai as genai
 import os
@@ -347,4 +347,174 @@ async def submit_feedback(request: FeedbackRequest):
         return {"status": "success", "message": f"Feedback applied. Memories {action}."}
     except Exception as e:
         logger.error(f"Error applying feedback: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ingest/email")
+async def trigger_email_ingestion():
+    """
+    Manual trigger to fetch unread emails via IMAP and ingest them into the memory graph.
+    """
+    try:
+        from app.services.email_service import fetch_unread_emails
+        logger.info("Starting manual email ingestion sync...")
+        result = await fetch_unread_emails()
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("message"))
+            
+        return result
+    except Exception as e:
+        logger.error(f"Error triggering email sync: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import Request
+@router.post("/webhooks/github")
+async def github_webhook(request: Request):
+    """
+    Endpoint to receive and process GitHub Webhook events.
+    Currently tracks push (commits), pull_request, and issues events.
+    """
+    try:
+        # Get the event type from GitHub headers
+        event_type = request.headers.get("X-GitHub-Event")
+        if not event_type:
+            return {"status": "ignored", "message": "Missing X-GitHub-Event header"}
+            
+        payload = await request.json()
+        repository = payload.get("repository", {}).get("full_name", "Unknown Repo")
+        repo_url = payload.get("repository", {}).get("html_url", "https://github.com")
+        sender = payload.get("sender", {}).get("login", "Unknown User")
+        
+        memories_added = 0
+        
+        if event_type == "push":
+            commits = payload.get("commits", [])
+            for commit in commits:
+                msg = commit.get("message", "")
+                author = commit.get("author", {}).get("name", sender)
+                url = commit.get("url", repo_url)
+                
+                context_data = {
+                    "title": f"Git Commit: {repository}",
+                    "url": url,
+                    "text": f"Repository: {repository}\nAuthor: {author}\nCommit Message: {msg}",
+                    "type": "github_commit"
+                }
+                await add_memory(context_data)
+                memories_added += 1
+                
+        elif event_type == "pull_request":
+            action = payload.get("action")
+            pr = payload.get("pull_request", {})
+            title = pr.get("title", "")
+            body = pr.get("body", "")
+            url = pr.get("html_url", repo_url)
+            
+            context_data = {
+                "title": f"Pull Request ({action}): {title}",
+                "url": url,
+                "text": f"Repository: {repository}\nAction: {action}\nPR Title: {title}\nDescription:\n{body}",
+                "type": "github_pr"
+            }
+            await add_memory(context_data)
+            memories_added += 1
+            
+        elif event_type == "issues":
+            action = payload.get("action")
+            issue = payload.get("issue", {})
+            title = issue.get("title", "")
+            body = issue.get("body", "")
+            url = issue.get("html_url", repo_url)
+            
+            context_data = {
+                "title": f"Issue ({action}): {title}",
+                "url": url,
+                "text": f"Repository: {repository}\nAction: {action}\nIssue Title: {title}\nDescription:\n{body}",
+                "type": "github_issue"
+            }
+            await add_memory(context_data)
+            memories_added += 1
+        else:
+            return {"status": "ignored", "message": f"Event type '{event_type}' not tracked."}
+            
+        logger.info(f"Processed GitHub Webhook ({event_type}) - Added {memories_added} memories.")
+        return {"status": "success", "message": f"Processed {event_type} event", "memories_added": memories_added}
+        
+    except Exception as e:
+        logger.error(f"Error processing GitHub webhook: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import UploadFile, File
+import io
+import pypdf
+
+@router.post("/upload/pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    """
+    Endpoint to upload and ingest a PDF document.
+    Extracts text from all pages and pushes it to the Semantic Chunker and Cognee Graph.
+    """
+    try:
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+            
+        logger.info(f"Processing PDF upload: {file.filename}")
+        
+        # Read the file stream into memory
+        contents = await file.read()
+        pdf_reader = pypdf.PdfReader(io.BytesIO(contents))
+        
+        extracted_text = ""
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            extracted_text += page.extract_text() + "\n\n"
+            
+        if not extracted_text.strip():
+            return {"status": "ignored", "message": "No text could be extracted from the PDF."}
+            
+        # Push to memory service
+        context_data = {
+            "title": f"PDF Document: {file.filename}",
+            "url": f"local://pdf/{file.filename}",
+            "text": extracted_text,
+            "type": "pdf_upload"
+        }
+        
+        await add_memory(context_data)
+        
+        logger.info(f"Successfully ingested PDF: {file.filename} ({len(pdf_reader.pages)} pages)")
+        
+        return {
+            "status": "success", 
+            "message": f"Successfully ingested {file.filename}", 
+            "pages": len(pdf_reader.pages)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing PDF: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ingest/custom")
+async def ingest_custom_data(request: CustomIngestionRequest):
+    """
+    Generic RESTful endpoint to ingest arbitrary data into the Kyro memory graph.
+    Useful for cURL scripts, Slack bots, or other custom integrations.
+    """
+    try:
+        logger.info(f"Received custom ingestion request: {request.title}")
+        
+        context_data = {
+            "title": request.title,
+            "url": request.url,
+            "text": request.text,
+            "type": "custom_api",
+            "metadata": request.metadata
+        }
+        
+        await add_memory(context_data)
+        
+        return {"status": "success", "message": f"Successfully ingested: {request.title}"}
+        
+    except Exception as e:
+        logger.error(f"Error in custom ingestion API: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
