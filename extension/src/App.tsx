@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Upload, Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw } from 'lucide-react';
+import { Onboarding } from './components/Onboarding';
+import { Auth } from './components/Auth';
 
 function App() {
   const [isActive, setIsActive] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
   const [recentCaptures, setRecentCaptures] = useState<any[]>([]);
+
+  // Routing State
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return localStorage.getItem('kyro_onboarding_complete') !== 'true';
+  });
+  const [showAuth, setShowAuth] = useState(() => {
+    // If onboarding is done but auth isn't, show auth. (For MVP we default false if they skip).
+    return localStorage.getItem('kyro_onboarding_complete') === 'true' && localStorage.getItem('kyro_auth_complete') !== 'true';
+  });
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -38,6 +49,21 @@ function App() {
     }, 8000);
     return () => clearInterval(interval);
   }, [isActive]);
+
+  if (showOnboarding) {
+    return <Onboarding onComplete={() => {
+      localStorage.setItem('kyro_onboarding_complete', 'true');
+      setShowOnboarding(false);
+      setShowAuth(true);
+    }} />;
+  }
+
+  if (showAuth) {
+    return <Auth onComplete={() => {
+      localStorage.setItem('kyro_auth_complete', 'true');
+      setShowAuth(false);
+    }} />;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gradient-animate text-white overflow-hidden relative">
