@@ -61,7 +61,7 @@ function App() {
               <button className="hover:text-white hover:bg-white/10 p-1 rounded transition-colors"><Plus size={14} /></button>
             </div>
             <div className="space-y-0.5">
-              <SidebarItem icon={<FileText size={16} />} label="Getting Started" />
+              <SidebarItem icon={<FileText size={16} />} label="Getting Started" active={activeTab === 'Getting Started'} onClick={() => setActiveTab('Getting Started')} />
               <SidebarItem icon={<Hash size={16} />} label="Project Ideas" />
               <SidebarItem icon={<FileText size={16} />} label="Meeting Notes" />
             </div>
@@ -123,6 +123,10 @@ function App() {
                 <p className="text-zinc-400 text-lg mb-4">Visualize your live knowledge graph built by Cognee.</p>
                 <GraphVisualizer />
               </div>
+            )}
+            
+            {activeTab === 'Getting Started' && (
+              <GettingStarted setActiveTab={setActiveTab} />
             )}
             
             {activeTab === 'Settings' && (
@@ -378,6 +382,123 @@ function SettingsPanel() {
               </div>
               <p className="mt-2 text-xs text-zinc-500">Your key is stored locally in your browser and sent securely to your local backend.</p>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GettingStarted({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
+  return (
+    <div className="max-w-5xl mx-auto pb-20 relative z-10 animate-fade-in">
+      
+      {/* Hero Section */}
+      <div className="glass-card rounded-[32px] p-10 mb-12 border border-blue-500/20 relative overflow-hidden group shadow-2xl">
+        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-all duration-1000 scale-150 transform translate-x-1/4 -translate-y-1/4">
+          <Sparkles size={300} className="text-blue-400" />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/5 to-transparent z-0"></div>
+        
+        <div className="relative z-10 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold uppercase tracking-widest mb-6">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+            Context OS v1.0
+          </div>
+          <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-zinc-400 mb-6 tracking-tight leading-tight">
+            The AI That Never Forgets You.
+          </h1>
+          <p className="text-zinc-300 text-xl leading-relaxed font-light mb-8 max-w-2xl">
+            Welcome to <strong className="text-white font-semibold">Kyro</strong>. It silently captures the context of your digital life—intercepting your thoughts across ChatGPT, Claude, Gemini, and Perplexity—weaving them into a continuous, local memory graph using <strong className="text-blue-400 font-medium">Cognee</strong> and <strong className="text-purple-400 font-medium">Gemini 1.5</strong>.
+          </p>
+          <div className="flex gap-4">
+            <button onClick={() => setActiveTab('Brain')} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center gap-2">
+              <Network size={18} /> Explore Brain
+            </button>
+            <button onClick={() => setActiveTab('Settings')} className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-xl border border-white/10 transition-all flex items-center gap-2">
+              <Settings size={18} /> Configure API
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Feature Grid */}
+      <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6 px-2">Core Capabilities</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="glass-card p-6 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-colors group">
+          <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-4 group-hover:scale-110 transition-transform">
+            <Clock size={24} />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2">Universal Tracking</h4>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            The browser extension runs silently in the background, intercepting your prompts from all major AI platforms before they are sent, capturing your raw train of thought.
+          </p>
+        </div>
+        
+        <div className="glass-card p-6 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-colors group">
+          <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 mb-4 group-hover:scale-110 transition-transform">
+            <Network size={24} />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2">Cognee Knowledge Graph</h4>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            Captured context is fed into a local RAG engine. Entities and relationships are extracted to build a 3D structural graph of your knowledge.
+          </p>
+        </div>
+
+        <div className="glass-card p-6 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-colors group">
+          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 mb-4 group-hover:scale-110 transition-transform">
+            <MessageSquare size={24} />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2">Contextual RAG Chat</h4>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            Query your own history. Ask Kyro questions and it will retrieve exactly what you were researching on Claude three days ago to answer you perfectly.
+          </p>
+        </div>
+      </div>
+
+      {/* Step by Step Guide */}
+      <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6 px-2">How to Operate</h3>
+      <div className="space-y-4">
+        
+        <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col md:flex-row gap-6 items-center">
+          <div className="flex-shrink-0 flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold text-2xl shadow-lg border-4 border-zinc-900 z-10">
+            1
+          </div>
+          <div className="flex-1 z-10">
+            <h3 className="text-xl font-bold text-white mb-2">Configure the Engine</h3>
+            <p className="text-zinc-400 leading-relaxed">
+              Kyro requires an LLM to process information. Navigate to the <strong>Settings</strong> tab in the sidebar and paste your Gemini API Key. This securely activates the backend RAG pipeline and `Cognee` graph without needing to restart the server.
+            </p>
+          </div>
+        </div>
+
+        <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col md:flex-row gap-6 items-center">
+          <div className="flex-shrink-0 flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 text-white font-bold text-2xl shadow-lg border-4 border-zinc-900 z-10">
+            2
+          </div>
+          <div className="flex-1 z-10">
+            <h3 className="text-xl font-bold text-white mb-2">Activate the Trackers</h3>
+            <p className="text-zinc-400 leading-relaxed mb-4">
+              Kyro works best when it's listening. Ensure the Kyro Chrome Extension is installed and active. Once running, simply use your favorite AI tools normally. Kyro will intercept and log your context automatically.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <span className="px-3 py-1.5 bg-black/40 rounded-lg border border-white/10 text-xs font-mono text-zinc-300 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-400"></div> chatgpt.com</span>
+              <span className="px-3 py-1.5 bg-black/40 rounded-lg border border-white/10 text-xs font-mono text-zinc-300 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-400"></div> claude.ai</span>
+              <span className="px-3 py-1.5 bg-black/40 rounded-lg border border-white/10 text-xs font-mono text-zinc-300 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-400"></div> gemini.google.com</span>
+              <span className="px-3 py-1.5 bg-black/40 rounded-lg border border-white/10 text-xs font-mono text-zinc-300 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-400"></div> perplexity.ai</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden flex flex-col md:flex-row gap-6 items-center">
+          <div className="flex-shrink-0 flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 text-white font-bold text-2xl shadow-lg border-4 border-zinc-900 z-10">
+            3
+          </div>
+          <div className="flex-1 z-10">
+            <h3 className="text-xl font-bold text-white mb-2">Explore the Graph</h3>
+            <p className="text-zinc-400 leading-relaxed">
+              As Kyro learns, your memory graph grows. Check the <strong>Live Feed</strong> to see data flowing from the extension in real-time. Jump into the <strong>Brain</strong> tab to explore a beautiful 3D visualization of how your ideas connect. When you're ready, use the <strong>Chat</strong> to talk directly to your augmented memory!
+            </p>
           </div>
         </div>
       </div>
