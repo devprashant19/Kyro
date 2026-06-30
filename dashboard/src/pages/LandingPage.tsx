@@ -121,6 +121,66 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* The Problem We Solve Section */}
+      <section className="relative z-10 w-full bg-black/20 border-y border-white/5 py-24 mb-32">
+        <div className="max-w-5xl mx-auto px-8 text-center">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">The Context Fragmentation Problem</h2>
+          <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto mb-16">
+            Every time you start a new chat with an AI, it forgets who you are, what you were working on yesterday, and the complex context you've already established. Your digital knowledge is fragmented across dozens of isolated chat histories.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+            <div className="p-8 rounded-3xl bg-red-500/5 border border-red-500/10">
+              <div className="text-red-400 font-bold text-xl mb-4">Without Kyro</div>
+              <ul className="space-y-4 text-zinc-400">
+                <li className="flex items-start gap-3">
+                  <span className="text-red-500 mt-1">✗</span> Repetitive prompting to re-establish context.
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-red-500 mt-1">✗</span> Lost brilliant ideas buried in old, unsearchable chats.
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-red-500 mt-1">✗</span> Zero cross-pollination between Claude, ChatGPT, and Gemini.
+                </li>
+              </ul>
+            </div>
+            <div className="p-8 rounded-3xl bg-emerald-500/5 border border-emerald-500/10 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5">
+                <Network size={100} className="text-emerald-400" />
+              </div>
+              <div className="text-emerald-400 font-bold text-xl mb-4 relative z-10">With Kyro Context OS</div>
+              <ul className="space-y-4 text-zinc-400 relative z-10">
+                <li className="flex items-start gap-3">
+                  <span className="text-emerald-500 mt-1">✓</span> Infinite memory that compounds automatically.
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-emerald-500 mt-1">✓</span> Instant semantic retrieval of past concepts.
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-emerald-500 mt-1">✓</span> A unified brain bridging all your AI interactions.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Security & Open Source Banner */}
+      <section className="relative z-10 max-w-7xl mx-auto px-8 pb-32">
+        <div className="glass-card rounded-3xl p-12 text-center border border-white/5 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-indigo-600/10"></div>
+          <div className="relative z-10">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Your Mind, Your Machine.</h2>
+            <p className="text-zinc-400 text-lg max-w-2xl mx-auto mb-8">
+              We believe your thoughts belong to you. Kyro is 100% open-source and designed to run entirely on your local hardware. No cloud sync, no tracking, no subscription fees. Just pure local intelligence.
+            </p>
+            <button onClick={() => window.open('https://github.com/puneetnith28/Kyro')} className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/20 transition-all">
+              Audit the Source Code
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/5 pt-12 pb-8 px-8 text-sm">
         <div className="max-w-7xl mx-auto">

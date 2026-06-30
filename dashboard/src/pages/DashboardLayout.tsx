@@ -25,7 +25,7 @@ export default function DashboardLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen w-full bg-gradient-animate text-white overflow-hidden selection:bg-indigo-500/30 relative">
+    <div className="flex h-full w-full bg-gradient-animate text-white overflow-hidden selection:bg-indigo-500/30 relative">
       <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onSelectTab={setActiveTab} />
       
       {/* Decorative ambient light (like extension) */}
@@ -49,7 +49,7 @@ export default function DashboardLayout() {
       <div 
         className={`fixed md:relative ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0'
-        } w-[260px] h-full transition-all duration-300 ease-in-out glass-sidebar flex flex-col z-40`}
+        } w-[260px] h-full transition-all duration-300 ease-in-out glass-sidebar flex flex-col z-40 overflow-hidden`}
       >
         <div className="p-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5 font-bold text-white text-lg tracking-tight group cursor-pointer">
@@ -95,25 +95,13 @@ export default function DashboardLayout() {
             </div>
             <div className="space-y-0.5">
               <SidebarItem icon={<FileText size={16} />} label="Getting Started" active={activeTab === 'Getting Started'} onClick={() => { setActiveTab('Getting Started'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
-              <SidebarItem icon={<Hash size={16} />} label="Project Ideas" />
-              <SidebarItem icon={<FileText size={16} />} label="Meeting Notes" />
+              <SidebarItem icon={<Hash size={16} />} label="Project Ideas" active={activeTab === 'Project Ideas'} onClick={() => { setActiveTab('Project Ideas'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
+              <SidebarItem icon={<FileText size={16} />} label="Meeting Notes" active={activeTab === 'Meeting Notes'} onClick={() => { setActiveTab('Meeting Notes'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
             </div>
           </div>
         </div>
         
-        <div className="p-3 border-t border-white/5">
-          <button 
-            onClick={() => logout()}
-            className="w-full flex items-center justify-between p-2 hover:bg-red-500/10 rounded-lg transition-all text-sm font-medium border border-transparent hover:border-red-500/20 text-zinc-300 hover:text-red-400"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center">
-                <LogOut size={14} />
-              </div>
-              <span>Log Out</span>
-            </div>
-          </button>
-        </div>
+
       </div>
 
       {/* Main Content Area */}
@@ -129,15 +117,17 @@ export default function DashboardLayout() {
                 <Menu size={16} />
               </button>
             )}
-            <span className="hover:text-white cursor-pointer transition-colors font-medium hidden sm:inline">Personal</span>
+            <span className="hover:text-white cursor-pointer transition-colors font-medium hidden sm:inline">
+              {['Getting Started', 'Project Ideas', 'Meeting Notes'].includes(activeTab) ? 'Personal Workspace' : 'Overview'}
+            </span>
             <ChevronRight size={14} className="text-zinc-600 hidden sm:inline" />
             <span className="text-zinc-200 font-medium">{activeTab}</span>
           </div>
           <div className="flex items-center gap-2">
-             <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors">
+             <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Link copied to clipboard!'); }} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors">
                <Share2 size={14} /> <span className="hidden sm:inline">Share</span>
              </button>
-             <button className="p-1.5 hover:bg-white/10 rounded-md text-zinc-400 transition-colors">
+             <button onClick={() => alert('More options coming soon!')} className="p-1.5 hover:bg-white/10 rounded-md text-zinc-400 transition-colors">
                <MoreHorizontal size={18} />
              </button>
           </div>
