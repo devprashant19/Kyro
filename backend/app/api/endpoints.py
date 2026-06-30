@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse
+from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse, FeedbackRequest
 from app.services.memory_service import add_memory, search_memories, prune_stale_memories
 import google.generativeai as genai
 import os
@@ -94,9 +94,18 @@ async def chat(request: ChatRequest):
     Endpoint for the Next.js Dashboard to interact with the AI.
     """
     try:
+        # Extract the latest user query
         user_msg = request.messages[-1].content
         
-        # 1. Retrieve relevant memories from Cognee
+        # Extract conversational history (last 5 messages excluding the current one)
+        chat_history = ""
+        if len(request.messages) > 1:
+            history_messages = request.messages[-6:-1]
+            for msg in history_messages:
+                role = "User" if msg.role == "user" else "Kyro"
+                chat_history += f"{role}: {msg.content}\n"
+        
+        # 1. Retrieve relevant memories from Cognee using the latest query
         memories = await search_memories(user_msg)
         
         # Format memories for the prompt
@@ -104,16 +113,30 @@ async def chat(request: ChatRequest):
         related_memories = []
         if memories:
             for i, mem in enumerate(memories):
-                context_text += f"[{i+1}] {mem.get('text', '')}\\n"
+                context_text += f"[{i+1}] {mem.get('text', '')}\n"
                 related_memories.append({"id": mem.get('id', str(i)), "label": mem.get('text', '')[:30] + "..."})
                 
-        # 2. Generate response using Gemini bounding it to retrieved memories
-        prompt = f"""You are Kyro, an AI assistant with a perfect memory powered by Cognee.
-        The user has asked a question. Answer it using ONLY the retrieved memories below.
-        If the memories do not contain the answer, say you don't remember any context about that.
+        # 2. Generate response using Gemini bounded to retrieved memories with Chain of Thought
+        prompt = f"""You are Kyro, an advanced AI assistant with a perfect memory powered by a Cognee Knowledge Graph.
+        
+        The user has asked a question. You MUST answer it using ONLY the retrieved memories below and the context of the Conversation History.
+        If the memories do not contain the answer, explicitly state that you don't remember any context about that. Do not hallucinate external knowledge.
+        
+        INSTRUCTIONS (Chain of Thought):
+        Before answering, silently analyze the retrieved memories step-by-step to determine how they relate to the user's question.
+        1. Identify the core entities in the user's question.
+        2. Scan the retrieved memories for direct mentions or semantic matches to these entities.
+        3. Synthesize the relevant facts into a coherent, accurate answer.
+        
+        FORMAT YOUR RESPONSE AS:
+        **Analysis:** (A brief 1-2 sentence summary of how you arrived at the answer based on the memories)
+        **Answer:** (Your final synthesized answer)
+        
+        Conversation History:
+        {chat_history if chat_history else "No previous conversation."}
         
         Retrieved Memories:
-        {context_text}
+        {context_text if context_text else "No memories found."}
         
         User Question: {user_msg}
         """
@@ -305,4 +328,23 @@ async def prune_graph_endpoint():
         return result
     except Exception as e:
         logger.error(f"Error in /prune endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/feedback")
+async def submit_feedback(request: FeedbackRequest):
+    """
+    Endpoint for submitting user feedback (RLHF) on a chat response.
+    Updates the weight of the memories used in the response.
+    """
+    try:
+        from app.services.memory_service import adjust_memory_weights
+        
+        adjust_memory_weights(request.memory_ids, request.rating)
+        
+        action = "boosted" if request.rating > 0 else "penalized"
+        logger.info(f"RLHF Feedback received. {len(request.memory_ids)} memories {action}.")
+        
+        return {"status": "success", "message": f"Feedback applied. Memories {action}."}
+    except Exception as e:
+        logger.error(f"Error applying feedback: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -43,3 +43,7 @@ class GraphResponse(BaseModel):
 
 class RecentCapturesResponse(BaseModel):
     captures: List[Dict[str, Any]]
+
+class FeedbackRequest(BaseModel):
+    memory_ids: List[str] = Field(..., description="The IDs of the memories used for the response")
+    rating: int = Field(..., description="1 for Thumbs Up, -1 for Thumbs Down")
