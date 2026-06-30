@@ -1,0 +1,61 @@
+services:
+  kyro-postgres:
+    image: pgvector/pgvector:pg17
+    container_name: kyro-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: cognee
+      POSTGRES_PASSWORD: cognee
+      POSTGRES_DB: cognee_db
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kyro-network
+
+  kyro-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kyro-backend
+    restart: always
+    ports:
+      - 8000:8000
+    depends_on:
+      - kyro-postgres
+    environment:
+      - DB_PROVIDER=postgres
+      - VECTOR_DB_PROVIDER=pgvector
+      - DB_HOST=kyro-postgres
+      - DB_PORT=5432
+      - DB_NAME=cognee_db
+      - DB_USERNAME=cognee
+      - DB_PASSWORD=cognee
+      # GEMINI_API_KEY will be injected by the user via the UI/env
+    volumes:
+      - ./backend:/app
+    networks:
+      - kyro-network
+
+  kyro-dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: kyro-dashboard
+    restart: always
+    ports:
+      - 4173:4173
+    depends_on:
+      - kyro-backend
+    environment:
+      - VITE_BACKEND_URL=http://kyro-backend:8000
+    networks:
+      - kyro-network
+
+networks:
+  kyro-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

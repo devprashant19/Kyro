@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest
+from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse
 from app.services.memory_service import add_memory, search_memories
 import google.generativeai as genai
 import os
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Initialize Gemini
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -27,12 +30,13 @@ async def capture_context(request: ContextCaptureRequest):
             
         # Send data to Cognee memory service
         await add_memory(capture_data)
-        print(f"Captured and Cognitified: {request.title} from {request.domain}")
+        logger.info(f"Captured and Cognitified: {request.title} from {request.domain}")
         return {"status": "success", "message": "Context captured and sent to memory pipeline."}
     except Exception as e:
+        logger.error(f"Error capturing context: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/recent")
+@router.get("/recent", response_model=RecentCapturesResponse)
 async def get_recent_captures():
     """
     Endpoint to fetch the recent memory captures for the Live Feed.
@@ -77,9 +81,10 @@ async def chat(request: ChatRequest):
             related_memories=related_memories
         )
     except Exception as e:
+        logger.error(f"Error during chat: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/graph")
+@router.get("/graph", response_model=GraphResponse)
 async def get_knowledge_graph():
     """
     Endpoint to retrieve graph nodes and edges for React Flow visualization.
@@ -134,7 +139,8 @@ async def update_api_key(request: ApiKeyRequest):
         from app.services.memory_service import setup_cognee
         await setup_cognee()
         
-        print("Successfully updated Gemini API Key dynamically.")
+        logger.info("Successfully updated Gemini API Key dynamically.")
         return {"status": "success", "message": "API Key updated successfully"}
     except Exception as e:
+        logger.error(f"Error updating API key: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
