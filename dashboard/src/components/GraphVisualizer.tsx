@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   ReactFlow,
-  MiniMap,
   Controls,
   Background,
   useNodesState,
@@ -9,6 +8,7 @@ import {
   addEdge,
   BackgroundVariant,
 } from '@xyflow/react';
+import type { Connection, Edge, Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Sparkles, RefreshCw, Network } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,12 +59,12 @@ const customEdgeOptions = {
 };
 
 export default function GraphVisualizer() {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
   const [timeTravelDays, setTimeTravelDays] = useState(0);
 
-  const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+  const onConnect = useCallback((params: Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges]);
 
   const fetchGraph = async (daysAgo: number = 0) => {
     setLoading(true);

@@ -1,9 +1,33 @@
 import { useState, useEffect } from 'react';
-import { Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw, Zap } from 'lucide-react';
+import { Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw } from 'lucide-react';
 
 function App() {
   const [isActive, setIsActive] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [recentCaptures, setRecentCaptures] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const healthRes = await fetch('http://localhost:8000/api/health');
+        if (healthRes.ok) setBackendConnected(true);
+        else setBackendConnected(false);
+
+        const recentRes = await fetch('http://localhost:8000/api/recent');
+        if (recentRes.ok) {
+          const data = await recentRes.json();
+          setRecentCaptures(data.captures || []);
+        }
+      } catch (e) {
+        setBackendConnected(false);
+      }
+    };
+    
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Simulate a random sync pulse
   useEffect(() => {
@@ -69,13 +93,13 @@ function App() {
           </div>
           
           <div className="flex items-center gap-3">
-            <div className={`relative flex h-3 w-3 ${!isActive && 'opacity-50'}`}>
-              {isActive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${isActive ? 'bg-emerald-500' : 'bg-zinc-600'}`}></span>
+            <div className={`relative flex h-3 w-3 ${(isActive && backendConnected) ? '' : 'opacity-50'}`}>
+              {(isActive && backendConnected) && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${(isActive && backendConnected) ? 'bg-emerald-500' : 'bg-zinc-600'}`}></span>
             </div>
             <div>
-              <p className="text-sm font-medium text-white">{isActive ? 'Connected to Kyro Brain' : 'Offline Mode'}</p>
-              <p className="text-xs text-zinc-400 mt-0.5">{isActive ? 'Capturing context in real-time' : 'Tracking paused by user'}</p>
+              <p className="text-sm font-medium text-white">{backendConnected ? 'Connected to Kyro Brain' : 'Offline / Backend Down'}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{isActive ? (backendConnected ? 'Capturing context in real-time' : 'Saving context locally') : 'Tracking paused by user'}</p>
             </div>
           </div>
         </div>
@@ -90,21 +114,22 @@ function App() {
           </div>
           
           <div className="space-y-2">
-            {[
-              { title: "GitHub: Cognee Architecture", icon: <ShieldCheck size={14} className="text-emerald-400" />, time: "2m ago" },
-              { title: "Medium: Vector DBs Explained", icon: <Zap size={14} className="text-blue-400" />, time: "14m ago" },
-              { title: "Local: dashboard/src/App.tsx", icon: <ShieldCheck size={14} className="text-emerald-400" />, time: "42m ago" }
-            ].map((item, i) => (
+            {recentCaptures.slice(0, 3).map((item, i) => (
               <div key={i} className="glass-card rounded-lg p-3 flex items-start gap-3 cursor-pointer">
                 <div className="mt-0.5 bg-zinc-800/50 p-1.5 rounded-md border border-white/5">
-                  {item.icon}
+                  <ShieldCheck size={14} className="text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
-                  <p className="text-[10px] text-zinc-500 mt-1">{item.time}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">{item.domain}</p>
                 </div>
               </div>
             ))}
+            {recentCaptures.length === 0 && (
+              <div className="text-center py-4 text-xs text-zinc-500">
+                No recent captures.
+              </div>
+            )}
           </div>
         </div>
       </main>

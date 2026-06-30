@@ -560,11 +560,10 @@ async def get_activity_heatmap():
         activity = []
         today = datetime.date.today()
         
-        # Generate 90 days of seeded data
+        # Generate 90 days of empty data, fill today with actual
         for i in range(89, -1, -1):
             date = today - datetime.timedelta(days=i)
-            # Higher chance of 0 or 1, lower chance of 3 or 4
-            weight = random.choices([0, 1, 2, 3, 4], weights=[40, 30, 15, 10, 5])[0]
+            weight = 0
             
             # If it's today, base it on actual recent captures
             if i == 0:
@@ -598,17 +597,29 @@ async def get_concept_clusters():
     For hackathon MVP, returns seed data.
     """
     try:
-        # In a real implementation, this would query Cognee embeddings with K-Means
-        clusters = [
-            {"concept": "React Server Components", "weight": 92},
-            {"concept": "Vector Search Algorithms", "weight": 85},
-            {"concept": "LLM Prompt Engineering", "weight": 78},
-            {"concept": "PostgreSQL Optimization", "weight": 65},
-            {"concept": "Graph Theory", "weight": 55},
-            {"concept": "System Architecture", "weight": 45},
-            {"concept": "Microservices", "weight": 35},
-            {"concept": "Docker Containers", "weight": 25},
-        ]
+        global recent_captures
+        
+        # Calculate real domain clusters from recent captures
+        domain_counts = {}
+        for cap in recent_captures:
+            domain = cap.get("domain", "unknown")
+            if domain:
+                domain_counts[domain] = domain_counts.get(domain, 0) + 1
+                
+        clusters = []
+        if domain_counts:
+            # Sort by frequency
+            sorted_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)
+            max_count = sorted_domains[0][1]
+            
+            for domain, count in sorted_domains[:8]:
+                # Normalize weight between 20 and 95 for UI sizing
+                weight = int((count / max_count) * 75) + 20
+                clusters.append({"concept": domain, "weight": weight})
+        else:
+            # Empty state
+            clusters = []
+            
         return {"clusters": clusters}
     except Exception as e:
         logger.error(f"Error fetching clusters: {str(e)}", exc_info=True)
