@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse
 from app.services.memory_service import add_memory, search_memories
 import google.generativeai as genai
 import os
+import json
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -35,6 +36,50 @@ async def capture_context(request: ContextCaptureRequest):
     except Exception as e:
         logger.error(f"Error capturing context: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.websocket("/ws/capture")
+async def websocket_capture(websocket: WebSocket):
+    """
+    WebSocket endpoint for the browser extension to push captured context continuously.
+    """
+    await websocket.accept()
+    logger.info("WebSocket connection established with extension.")
+    try:
+        global recent_captures
+        while True:
+            # Wait for data from the extension
+            data = await websocket.receive_text()
+            try:
+                capture_data = json.loads(data)
+                
+                # Cache for the live feed
+                if capture_data.get("type") == "BATCH":
+                    payloads = capture_data.get("payloads", [])
+                    for payload in payloads:
+                        recent_captures.insert(0, payload)
+                        if len(recent_captures) > 50:
+                            recent_captures.pop()
+                        await add_memory(payload)
+                        logger.info(f"Captured (WS Batch) and Cognitified: {payload.get('title')} from {payload.get('domain')}")
+                else:
+                    recent_captures.insert(0, capture_data)
+                    if len(recent_captures) > 50:
+                        recent_captures.pop()
+                    await add_memory(capture_data)
+                    logger.info(f"Captured (WS Single) and Cognitified: {capture_data.get('title')} from {capture_data.get('domain')}")
+                
+                # Acknowledge receipt
+                await websocket.send_json({"status": "success", "message": "Context batch processed."})
+            except json.JSONDecodeError:
+                logger.error("Invalid JSON received over WS")
+                await websocket.send_json({"status": "error", "message": "Invalid JSON"})
+            except Exception as inner_e:
+                logger.error(f"Error processing WS payload: {str(inner_e)}", exc_info=True)
+                await websocket.send_json({"status": "error", "message": str(inner_e)})
+    except WebSocketDisconnect:
+        logger.info("Extension disconnected from WebSocket.")
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}", exc_info=True)
 
 @router.get("/recent", response_model=RecentCapturesResponse)
 async def get_recent_captures():

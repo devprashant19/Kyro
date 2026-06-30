@@ -12,6 +12,15 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "commands": {
+    "kyro-manual-capture": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "MacCtrl+Shift+K"
+      },
+      "description": "Capture highlighted text to Kyro MemoryOS"
+    }
+  },
   "action": {
     "default_popup": "index.html",
     "default_title": "Kyro"
