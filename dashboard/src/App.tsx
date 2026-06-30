@@ -125,6 +125,10 @@ function App() {
               </div>
             )}
             
+            {activeTab === 'Settings' && (
+              <SettingsPanel />
+            )}
+            
             {activeTab === 'Chat' && (
               <ChatComponent />
             )}
@@ -300,6 +304,83 @@ function LiveFeed() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function SettingsPanel() {
+  const [apiKey, setApiKey] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('kyro_gemini_api_key');
+    if (saved) setApiKey(saved);
+  }, []);
+
+  const handleSave = async () => {
+    if (!apiKey.trim()) return;
+    setStatus('loading');
+    
+    try {
+      const res = await fetch('http://localhost:8000/api/settings/apikey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey.trim() })
+      });
+      
+      if (res.ok) {
+        localStorage.setItem('kyro_gemini_api_key', apiKey.trim());
+        setStatus('success');
+        setTimeout(() => setStatus('idle'), 3000);
+      } else {
+        setStatus('error');
+      }
+    } catch (err) {
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mt-8">
+      <div className="glass-card rounded-2xl p-8 relative overflow-hidden group border border-white/5">
+        <div className="absolute top-0 right-0 p-4 opacity-5">
+          <Settings size={120} className="text-white" />
+        </div>
+        
+        <div className="relative z-10">
+          <h2 className="text-xl font-bold text-white mb-2">API Configuration</h2>
+          <p className="text-zinc-400 mb-8 text-sm">Configure your LLM providers to power Kyro's memory graph and RAG capabilities.</p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Gemini API Key</label>
+              <div className="relative">
+                <input 
+                  type="password" 
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="AIzaSy..." 
+                  className="w-full bg-zinc-900/50 border border-white/10 rounded-xl pl-4 pr-32 py-3 text-[15px] text-white focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner backdrop-blur-md placeholder:text-zinc-700 font-mono"
+                />
+                <button 
+                  onClick={handleSave}
+                  disabled={status === 'loading'}
+                  className={`absolute right-2 top-2 bottom-2 px-4 rounded-lg font-medium text-sm transition-all ${
+                    status === 'success' 
+                      ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                      : status === 'error'
+                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  {status === 'loading' ? 'Saving...' : status === 'success' ? 'Saved!' : status === 'error' ? 'Error' : 'Save Key'}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-zinc-500">Your key is stored locally in your browser and sent securely to your local backend.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

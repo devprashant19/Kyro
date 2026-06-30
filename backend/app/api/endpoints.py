@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse
+from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest
 from app.services.memory_service import add_memory, search_memories
 import google.generativeai as genai
 import os
@@ -119,3 +119,22 @@ async def get_knowledge_graph():
         "nodes": nodes,
         "edges": edges
     }
+
+@router.post("/settings/apikey")
+async def update_api_key(request: ApiKeyRequest):
+    """
+    Dynamically update the Gemini API key used by the backend.
+    """
+    try:
+        os.environ["GEMINI_API_KEY"] = request.api_key
+        # Re-configure Google Generative AI
+        genai.configure(api_key=request.api_key)
+        
+        # We might also need to re-initialize Cognee if it cached the key
+        from app.services.memory_service import setup_cognee
+        await setup_cognee()
+        
+        print("Successfully updated Gemini API Key dynamically.")
+        return {"status": "success", "message": "API Key updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

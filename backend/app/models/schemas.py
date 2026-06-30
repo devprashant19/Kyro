@@ -21,5 +21,8 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
-    sources: List[Dict[str, Any]] = []
-    related_memories: List[Dict[str, Any]] = []
+    sources: List[str] = []
+    related_memories: List[dict] = []
+
+class ApiKeyRequest(BaseModel):
+    api_key: str
