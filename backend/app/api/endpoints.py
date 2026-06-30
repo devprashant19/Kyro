@@ -563,3 +563,81 @@ async def get_activity_heatmap():
     except Exception as e:
         logger.error(f"Error generating activity heatmap: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/analytics/clusters")
+async def get_concept_clusters():
+    """
+    Returns trending concept clusters.
+    For hackathon MVP, returns seed data.
+    """
+    try:
+        # In a real implementation, this would query Cognee embeddings with K-Means
+        clusters = [
+            {"concept": "React Server Components", "weight": 92},
+            {"concept": "Vector Search Algorithms", "weight": 85},
+            {"concept": "LLM Prompt Engineering", "weight": 78},
+            {"concept": "PostgreSQL Optimization", "weight": 65},
+            {"concept": "Graph Theory", "weight": 55},
+            {"concept": "System Architecture", "weight": 45},
+            {"concept": "Microservices", "weight": 35},
+            {"concept": "Docker Containers", "weight": 25},
+        ]
+        return {"clusters": clusters}
+    except Exception as e:
+        logger.error(f"Error fetching clusters: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/export")
+async def export_data():
+    """
+    Exports the user's graph data (recent captures and metadata) as a JSON file.
+    """
+    import datetime
+    try:
+        global recent_captures
+        export_data = {
+            "version": "1.0",
+            "exported_at": datetime.datetime.utcnow().isoformat(),
+            "memories_count": len(recent_captures),
+            "memories": recent_captures
+        }
+        return export_data
+    except Exception as e:
+        logger.error(f"Error exporting data: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/analytics/weekly-report")
+async def get_weekly_report():
+    """
+    Generates a weekly summary report using Gemini based on recent captures.
+    """
+    try:
+        global recent_captures
+        
+        if not recent_captures:
+            return {"report": "You haven't captured any context yet. Start browsing with Kyro to generate insights!"}
+            
+        # Prepare context data
+        context_str = "Recent User Activity:\n"
+        for cap in recent_captures[:20]: # Limit to top 20 for token constraints
+            context_str += f"- [{cap.get('type')}] {cap.get('title')}: {cap.get('text', '')[:200]}...\n"
+            
+        prompt = f"""You are Kyro, an executive AI assistant. Analyze the user's recent contextual activity and generate a concise, highly-structured "Weekly Insights Report". 
+Format the response strictly in Markdown with these sections:
+1. **Executive Summary** (2-3 sentences summarizing their main focus).
+2. **Key Learnings** (3 bullet points of specific things they researched/read).
+3. **Actionable Follow-ups** (2 suggestions on what they might want to do next based on the data).
+
+Here is the raw data:
+{context_str}
+"""
+        
+        # We use the globally configured model from the top of the file
+        response = await model.generate_content_async(prompt)
+        report_text = response.text
+        
+        return {"report": report_text}
+        
+    except Exception as e:
+        logger.error(f"Error generating weekly report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

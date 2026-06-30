@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, Search, Home, FileText, Star, Settings, 
-  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network, Clock, Inbox, BarChart2, TrendingUp
+  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network, Clock, Inbox, BarChart2, TrendingUp, DownloadCloud, GitCommit, Bot, Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GraphVisualizer from './components/GraphVisualizer';
@@ -81,6 +81,7 @@ function App() {
             <SidebarItem icon={<Clock size={16} />} label="Live Feed" active={activeTab === 'Live Feed'} onClick={() => { setActiveTab('Live Feed'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
             <SidebarItem icon={<MessageSquare size={16} />} label="Chat" active={activeTab === 'Chat'} onClick={() => { setActiveTab('Chat'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
             <SidebarItem icon={<Network size={16} />} label="Brain" active={activeTab === 'Brain'} onClick={() => { setActiveTab('Brain'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
+            <SidebarItem icon={<GitCommit size={16} />} label="Timeline" active={activeTab === 'Timeline'} onClick={() => { setActiveTab('Timeline'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
             <SidebarItem icon={<Star size={16} />} label="Favorites" active={activeTab === 'Favorites'} onClick={() => { setActiveTab('Favorites'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
             <SidebarItem icon={<BarChart2 size={16} />} label="Insights" active={activeTab === 'Insights'} onClick={() => { setActiveTab('Insights'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
             <SidebarItem icon={<Settings size={16} />} label="Settings" active={activeTab === 'Settings'} onClick={() => { setActiveTab('Settings'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
@@ -158,6 +159,10 @@ function App() {
             
             {activeTab === 'Insights' && (
               <InsightsPanel />
+            )}
+
+            {activeTab === 'Timeline' && (
+              <TimelineComponent />
             )}
 
             {activeTab === 'Getting Started' && (
@@ -644,23 +649,50 @@ function GettingStarted({ setActiveTab }: { setActiveTab: (tab: string) => void 
 
 function InsightsPanel() {
   const [activity, setActivity] = useState<{date: string, count: number}[]>([]);
+  const [clusters, setClusters] = useState<{concept: string, weight: number}[]>([]);
   const [loading, setLoading] = useState(true);
+  const [report, setReport] = useState<string | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
 
   useEffect(() => {
-    const fetchActivity = async () => {
+    const fetchAnalytics = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/analytics/activity');
-        if (res.ok) {
-          const data = await res.json();
+        const [activityRes, clustersRes] = await Promise.all([
+          fetch('http://localhost:8000/api/analytics/activity'),
+          fetch('http://localhost:8000/api/analytics/clusters')
+        ]);
+        
+        if (activityRes.ok) {
+          const data = await activityRes.json();
           setActivity(data.activity || []);
+        }
+        if (clustersRes.ok) {
+          const data = await clustersRes.json();
+          setClusters(data.clusters || []);
         }
       } catch (err) {
         console.error(err);
       }
       setLoading(false);
     };
-    fetchActivity();
+    fetchAnalytics();
   }, []);
+
+  const generateReport = async () => {
+    setGeneratingReport(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/analytics/weekly-report');
+      if (res.ok) {
+        const data = await res.json();
+        setReport(data.report);
+      }
+    } catch (err) {
+      console.error(err);
+      setReport("Failed to generate report. Please try again later.");
+    }
+    setGeneratingReport(false);
+  };
 
   const totalCaptured = activity.reduce((acc, curr) => acc + curr.count * 12, 452); // mockup multiplier
   
@@ -672,8 +704,32 @@ function InsightsPanel() {
     return 'bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]';
   };
 
+  const getClusterStyle = (weight: number) => {
+    if (weight > 80) return { size: 'text-xl py-3 px-6', color: 'from-blue-500 to-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.4)] border-transparent text-white' };
+    if (weight > 60) return { size: 'text-lg py-2 px-5', color: 'from-blue-600/80 to-purple-600/80 border-white/10 text-zinc-100' };
+    if (weight > 40) return { size: 'text-md py-1.5 px-4', color: 'from-zinc-800 to-zinc-700 border-white/10 text-zinc-300' };
+    return { size: 'text-sm py-1 px-3', color: 'from-zinc-900 to-zinc-800 border-white/5 text-zinc-500' };
+  };
+
+  // Helper to parse simple markdown (bold and lists) for the report MVP
+  const parseMarkdown = (text: string) => {
+    return text.split('\n').map((line, i) => {
+      let formattedLine = line;
+      // Handle bold
+      formattedLine = formattedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      // Handle list items
+      if (formattedLine.startsWith('- ')) {
+        return <li key={i} className="ml-4 mb-2" dangerouslySetInnerHTML={{ __html: formattedLine.substring(2) }} />;
+      }
+      if (formattedLine.startsWith('1. ') || formattedLine.startsWith('2. ') || formattedLine.startsWith('3. ')) {
+        return <h4 key={i} className="text-lg font-bold text-white mt-4 mb-2" dangerouslySetInnerHTML={{ __html: formattedLine.substring(3) }} />;
+      }
+      return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: formattedLine }} />;
+    });
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-12">
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass-card p-5 rounded-2xl border border-white/5 flex items-center gap-4">
@@ -737,6 +793,207 @@ function InsightsPanel() {
           <span>More</span>
         </div>
       </div>
+
+      <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+          <Network size={200} />
+        </div>
+        <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-6">Trending Concepts</h3>
+        {loading ? (
+          <div className="h-40 flex items-center justify-center text-zinc-500 animate-pulse text-sm">Clustering concepts...</div>
+        ) : (
+          <div className="flex flex-wrap justify-center gap-4 py-8 items-center relative z-10">
+            <AnimatePresence>
+              {clusters.map((cluster, i) => {
+                const style = getClusterStyle(cluster.weight);
+                return (
+                  <motion.div
+                    key={cluster.concept}
+                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                    animate={{ 
+                      opacity: 1, 
+                      y: [0, -10, 0],
+                      scale: 1 
+                    }}
+                    transition={{ 
+                      opacity: { delay: i * 0.1, duration: 0.5 },
+                      scale: { delay: i * 0.1, duration: 0.5 },
+                      y: { 
+                        repeat: Infinity, 
+                        duration: 3 + (i % 3), 
+                        ease: "easeInOut",
+                        delay: i * 0.2
+                      }
+                    }}
+                    className={`rounded-full bg-gradient-to-r border font-medium whitespace-nowrap cursor-pointer hover:brightness-125 transition-all ${style.size} ${style.color}`}
+                  >
+                    {cluster.concept}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* AI Weekly Summary Report */}
+      <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+              <Bot size={16} className="text-blue-400" />
+              AI Weekly Synthesis
+            </h3>
+            <p className="text-sm text-zinc-500">Let Gemini analyze your captured context and generate an executive summary.</p>
+          </div>
+          {!report && (
+            <button 
+              onClick={generateReport}
+              disabled={generatingReport}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-lg transition-all font-medium text-sm shadow-[0_0_15px_rgba(59,130,246,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Sparkles size={16} className={generatingReport ? "animate-pulse" : ""} />
+              {generatingReport ? "Synthesizing..." : "Generate Report"}
+            </button>
+          )}
+        </div>
+
+        {report && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="border-t border-white/5 pt-6"
+          >
+            <div className="text-zinc-300 text-sm leading-relaxed max-w-3xl prose prose-invert">
+              {parseMarkdown(report)}
+            </div>
+            
+            <div className="mt-8 flex justify-end">
+              <button 
+                onClick={() => setReportSent(true)}
+                disabled={reportSent}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium text-sm border ${
+                  reportSent 
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 cursor-default' 
+                  : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
+                }`}
+              >
+                {reportSent ? (
+                  <>Sent Successfully ✓</>
+                ) : (
+                  <>
+                    <Mail size={16} />
+                    Email to Me
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      <div className="glass-card p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-bold text-white mb-1">Data Ownership</h3>
+          <p className="text-sm text-zinc-400">Kyro is local-first. Export your raw contextual captures at any time.</p>
+        </div>
+        <button 
+          onClick={async () => {
+            try {
+              const res = await fetch('http://localhost:8000/api/export');
+              const data = await res.json();
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `kyro_export_${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            } catch (err) {
+              console.error('Failed to export data', err);
+            }
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors border border-white/10 text-sm font-medium whitespace-nowrap"
+        >
+          <DownloadCloud size={16} />
+          Export Graph Data
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TimelineComponent() {
+  const [captures, setCaptures] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCaptures = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/captures/recent');
+        if (response.ok) {
+          const data = await response.json();
+          setCaptures(data.captures || []);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      setLoading(false);
+    };
+    fetchCaptures();
+  }, []);
+
+  if (loading) return <div className="text-zinc-500 animate-pulse mt-8">Reconstructing timeline...</div>;
+  if (captures.length === 0) return (
+    <div className="flex flex-col items-center justify-center p-12 mt-8 text-center glass-card rounded-2xl border border-white/5">
+      <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-6 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+        <GitCommit size={32} />
+      </div>
+      <h3 className="text-xl font-bold text-white mb-2">No History Yet</h3>
+      <p className="text-zinc-400 max-w-md mx-auto text-sm leading-relaxed">
+        Start capturing context to build your historical timeline.
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="relative border-l border-zinc-800 ml-6 md:ml-12 mt-8 pb-12 space-y-10">
+      <AnimatePresence>
+        {captures.map((capture, idx) => (
+          <motion.div 
+            key={idx}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: idx * 0.1, duration: 0.4 }}
+            className="relative pl-8 md:pl-10"
+          >
+            {/* Timeline node */}
+            <div className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-zinc-900 border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] z-10" />
+            
+            <div className="glass-card p-5 rounded-2xl border border-white/5 group hover:border-white/10 transition-colors">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-2">
+                <h3 className="text-lg font-bold text-white leading-snug group-hover:text-blue-400 transition-colors">{capture.title}</h3>
+                <span className="text-xs text-zinc-500 bg-zinc-900/80 px-2.5 py-1 rounded-md border border-white/5 whitespace-nowrap">
+                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <p className="text-zinc-400 text-sm leading-relaxed line-clamp-3 mb-4">
+                {capture.text}
+              </p>
+              <div className="flex items-center justify-between">
+                <a href={capture.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-blue-500 hover:text-blue-400 transition-colors">
+                  {new URL(capture.url).hostname}
+                </a>
+                <span className="text-[10px] uppercase tracking-widest text-zinc-600 font-bold bg-white/5 px-2 py-0.5 rounded">
+                  {capture.type || 'web_page'}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
