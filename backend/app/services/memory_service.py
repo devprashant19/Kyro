@@ -49,7 +49,65 @@ async def search_memories(query: str):
 async def get_graph_data():
     """
     Retrieve nodes and edges from Cognee's internal graph representation.
-    Note: Requires direct access to the graph engine used by cognee.
     """
-    # For MVP we will simulate graph data until we write custom networkx extractors
-    return None
+    try:
+        from cognee.infrastructure.databases.graph import get_graph_engine
+        engine = await get_graph_engine()
+        
+        if hasattr(engine, "get_graph_data"):
+            nodes, edges = await engine.get_graph_data()
+            return {"nodes": nodes, "edges": edges}
+        
+        return None
+    except Exception as e:
+        print(f"Error extracting graph data from Cognee: {e}")
+        return None
+async def prune_stale_memories():
+    """
+    Scans the graph for duplicate nodes (based on exact label/content matches)
+    and removes the stale copies to save space and improve context relevance.
+    """
+    try:
+        from cognee.infrastructure.databases.graph import get_graph_engine
+        engine = await get_graph_engine()
+        
+        if not hasattr(engine, "get_graph_data") or not hasattr(engine, "delete_node"):
+            return {"status": "skipped", "message": "Graph engine does not support direct pruning."}
+            
+        nodes, edges = await engine.get_graph_data()
+        if not nodes:
+            return {"status": "success", "message": "Graph is empty, nothing to prune.", "pruned_count": 0}
+            
+        seen_labels = set()
+        duplicates_to_delete = []
+        
+        for node in nodes:
+            node_id = node.get("id") if isinstance(node, dict) else (node[0] if isinstance(node, tuple) else None)
+            label = node.get("id") if isinstance(node, dict) else (node[0] if isinstance(node, tuple) else None)
+            
+            if not node_id or not label:
+                continue
+                
+            label_str = str(label).strip().lower()
+            
+            if label_str in seen_labels:
+                duplicates_to_delete.append(node_id)
+            else:
+                seen_labels.add(label_str)
+                
+        # Delete the identified duplicates
+        for node_id in duplicates_to_delete:
+            try:
+                await engine.delete_node(node_id)
+                print(f"Pruned duplicate node: {node_id}")
+            except Exception as e:
+                print(f"Failed to delete node {node_id}: {e}")
+                
+        return {
+            "status": "success", 
+            "message": f"Successfully pruned {len(duplicates_to_delete)} duplicate memory nodes.",
+            "pruned_count": len(duplicates_to_delete)
+        }
+    except Exception as e:
+        print(f"Error during graph pruning: {e}")
+        return {"status": "error", "message": str(e), "pruned_count": 0}

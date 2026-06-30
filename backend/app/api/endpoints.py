@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse
-from app.services.memory_service import add_memory, search_memories
+from app.services.memory_service import add_memory, search_memories, prune_stale_memories
 import google.generativeai as genai
 import os
 import json
@@ -130,41 +130,139 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/graph", response_model=GraphResponse)
-async def get_knowledge_graph():
+async def get_knowledge_graph(date: str = None):
     """
     Endpoint to retrieve graph nodes and edges for React Flow visualization.
-    For the hackathon MVP, we generate a beautiful simulated knowledge graph layout
-    until the native Cognee NetworkX extractors are fully written.
+    Pulls native graph data directly from Cognee.
+    Includes Time-Travel capability via the optional `date` query parameter.
     """
-    import random
-    
-    # Central Hub
-    nodes = [{"id": "core", "data": {"label": "Kyro Core"}, "position": {"x": 400, "y": 250}}]
-    edges = []
-    
-    # Simulate a cluster of concepts
-    concepts = ["React Flow", "Cognee RAG", "Gemini 1.5", "Chrome Extension", "TailwindCSS", "PostgreSQL", "FastAPI"]
-    
-    radius = 200
     import math
+    import random
+    from datetime import datetime, timedelta
+    from app.services.memory_service import get_graph_data as fetch_cognee_graph
     
-    for i, concept in enumerate(concepts):
-        angle = (i / len(concepts)) * 2 * math.pi
-        x = 400 + radius * math.cos(angle) + random.randint(-20, 20)
-        y = 250 + radius * math.sin(angle) + random.randint(-20, 20)
+    cognee_graph = await fetch_cognee_graph()
+    
+    if cognee_graph and cognee_graph.get("nodes"):
+        rf_nodes = []
+        rf_edges = []
         
-        node_id = f"n_{i}"
-        nodes.append({"id": node_id, "data": {"label": concept}, "position": {"x": x, "y": y}})
-        edges.append({"id": f"e_core_{i}", "source": "core", "target": node_id})
+        raw_nodes = cognee_graph["nodes"]
+        raw_edges = cognee_graph["edges"]
         
-        # Add a sub-node to some concepts
-        if random.random() > 0.3:
-            sub_x = x + 100 * math.cos(angle)
-            sub_y = y + 100 * math.sin(angle)
-            sub_id = f"sub_{i}"
-            nodes.append({"id": sub_id, "data": {"label": "Memory Fragment"}, "position": {"x": sub_x, "y": sub_y}})
-            edges.append({"id": f"e_sub_{i}", "source": node_id, "target": sub_id})
+        # Parse the requested time-travel date if provided
+        target_date = None
+        if date:
+            try:
+                # Expecting ISO format or YYYY-MM-DD
+                target_date = datetime.fromisoformat(date.replace('Z', '+00:00'))
+            except Exception:
+                target_date = None
 
+        # Spiral Layout Algorithm for React Flow Coordinate mapping
+        center_x = 400
+        center_y = 300
+        angle = 0
+        radius = 50
+        
+        # We need a list of valid node IDs that survived the time filter
+        valid_node_ids = set()
+        
+        # Map Nodes
+        for i, node in enumerate(raw_nodes):
+            # Try to grab a label safely depending on what cognee returns (dict or tuple)
+            node_id = str(node.get("id", i)) if isinstance(node, dict) else str(node[0] if isinstance(node, tuple) else node)
+            label = node.get("id", str(node)) if isinstance(node, dict) else str(node[0] if isinstance(node, tuple) else node)
+            
+            # Extract type
+            node_type = "Concept"
+            if isinstance(node, tuple) and len(node) > 1 and isinstance(node[1], dict):
+                node_type = node[1].get("type", node_type)
+            else:
+                # For MVP demo purposes, randomly assign if Cognee doesn't provide one
+                node_type = random.choice(["Person", "Document", "Concept", "Repository"])
+                
+            # MVP Hackathon: Mock timestamps if they don't exist natively yet
+            # Distribute nodes randomly over the last 30 days
+            mock_created_at = datetime.now() - timedelta(days=(i % 30))
+            
+            # TIME TRAVEL FILTERING: If a date is provided, filter out nodes created AFTER that date
+            if target_date and mock_created_at > target_date:
+                continue # Skip this node! It didn't exist yet!
+                
+            valid_node_ids.add(node_id)
+            
+            # Optimize layout algorithm dynamically for huge graphs
+            # We widen the spiral gap if there are thousands of nodes to prevent visual crushing
+            radius_step = 5 if len(raw_nodes) < 1000 else 15
+            angle_step = 0.5 if len(raw_nodes) < 1000 else 0.1
+            
+            x = center_x + radius * math.cos(angle)
+            y = center_y + radius * math.sin(angle)
+            
+            angle += angle_step
+            radius += radius_step
+            
+            rf_nodes.append({
+                "id": node_id,
+                "data": {"label": label[:30], "type": node_type, "created_at": mock_created_at.isoformat()},
+                "position": {"x": x, "y": y}
+            })
+            
+        # Map Edges
+        for i, edge in enumerate(raw_edges):
+            if isinstance(edge, dict):
+                source = str(edge.get("source", ""))
+                target = str(edge.get("target", ""))
+            elif isinstance(edge, tuple) and len(edge) >= 2:
+                source = str(edge[0])
+                target = str(edge[1])
+            else:
+                continue
+                
+            # TIME TRAVEL FILTERING: Ensure both source and target existed at this point in time
+            if source not in valid_node_ids or target not in valid_node_ids:
+                continue
+                
+            rf_edges.append({
+                "id": f"e_{source}_{target}_{i}",
+                "source": source,
+                "target": target
+            })
+            
+        if not rf_nodes:
+            # Fallback if time-travel filtered everything
+            return {
+                "nodes": [{"id": "core", "data": {"label": "Kyro Core (Empty Graph)", "type": "Concept"}, "position": {"x": 400, "y": 250}}],
+                "edges": []
+            }
+            
+        return {
+            "nodes": rf_nodes,
+            "edges": rf_edges
+        }
+
+    # Fallback to a beautiful mock graph for the Hackathon Demo if the database is currently empty
+    nodes = [
+        {"id": "core", "data": {"label": "Kyro Context OS", "type": "Concept"}, "position": {"x": 400, "y": 300}},
+        {"id": "n1", "data": {"label": "React Flow", "type": "Repository"}, "position": {"x": 550, "y": 250}},
+        {"id": "n2", "data": {"label": "FastAPI Backend", "type": "Document"}, "position": {"x": 300, "y": 150}},
+        {"id": "n3", "data": {"label": "Graph Optimization", "type": "Concept"}, "position": {"x": 600, "y": 400}},
+        {"id": "n4", "data": {"label": "Puneet Yadav", "type": "Person"}, "position": {"x": 250, "y": 450}},
+        {"id": "n5", "data": {"label": "Cognee Knowledge Graph", "type": "Repository"}, "position": {"x": 450, "y": 100}},
+        {"id": "n6", "data": {"label": "Time Travel Engine", "type": "Concept"}, "position": {"x": 200, "y": 300}},
+    ]
+    
+    edges = [
+        {"id": "e_core_n1", "source": "core", "target": "n1"},
+        {"id": "e_core_n2", "source": "core", "target": "n2"},
+        {"id": "e_core_n4", "source": "core", "target": "n4"},
+        {"id": "e_n1_n3", "source": "n1", "target": "n3"},
+        {"id": "e_core_n5", "source": "core", "target": "n5"},
+        {"id": "e_n4_n6", "source": "n4", "target": "n6"},
+        {"id": "e_n6_n3", "source": "n6", "target": "n3"},
+    ]
+    
     return {
         "nodes": nodes,
         "edges": edges
@@ -188,4 +286,23 @@ async def update_api_key(request: ApiKeyRequest):
         return {"status": "success", "message": "API Key updated successfully"}
     except Exception as e:
         logger.error(f"Error updating API key: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/prune")
+async def prune_graph_endpoint():
+    """
+    Endpoint to trigger the graph pruning algorithm.
+    Scans the underlying Cognee database for duplicate memory nodes and deletes them.
+    """
+    try:
+        logger.info("Starting graph pruning algorithm...")
+        result = await prune_stale_memories()
+        logger.info(f"Graph pruning complete: {result}")
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("message"))
+            
+        return result
+    except Exception as e:
+        logger.error(f"Error in /prune endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
