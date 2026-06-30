@@ -22,12 +22,24 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://github.com/*", "https://medium.com/*", "https://dev.to/*", "https://www.youtube.com/*", "https://gemini.google.com/*", "https://claude.ai/*"],
+      "matches": ["https://github.com/*", "https://medium.com/*", "https://dev.to/*", "https://www.youtube.com/*"],
       "js": ["src/content/index.ts"]
     },
     {
       "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
       "js": ["src/content/chatgpt.ts"]
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["src/content/claude.ts"]
+    },
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["src/content/gemini.ts"]
+    },
+    {
+      "matches": ["https://www.perplexity.ai/*"],
+      "js": ["src/content/perplexity.ts"]
     }
   ]
 }
