@@ -1,18 +1,19 @@
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Network, Clock, MessageSquare, ArrowRight } from 'lucide-react';
+import GridBackground from '../components/GridBackground';
 
 export default function LandingPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-animate text-white overflow-x-hidden relative selection:bg-indigo-500/30">
+    <GridBackground>
       {/* Decorative ambient light */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
       {/* Navbar */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+      <nav className="relative z-10 w-full flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
         <div className="flex items-center gap-2.5 font-bold text-white text-xl tracking-tight group cursor-pointer">
           <div className="relative">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
@@ -34,15 +35,6 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <main className="relative z-10 flex flex-col items-center justify-center pt-20 pb-32 px-4 text-center max-w-5xl mx-auto">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold uppercase tracking-widest mb-8"
-        >
-          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-          Context OS v1.0
-        </motion.div>
         
         <motion.h1 
           initial={{ opacity: 0, y: 20 }}
@@ -130,15 +122,29 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 py-12 text-center text-zinc-500 text-sm">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <div className="w-6 h-6 rounded bg-zinc-900 border border-white/10 flex items-center justify-center">
-            <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 font-bold text-[10px]">K</span>
+      <footer className="relative z-10 border-t border-white/5 pt-12 pb-8 px-8 text-sm">
+        <div className="max-w-7xl mx-auto">
+          {/* Logo */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <div className="w-8 h-8 rounded-lg bg-zinc-900 shadow-md border border-white/10 flex items-center justify-center">
+              <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 text-sm font-bold">K</span>
+            </div>
+            <span className="font-bold text-white text-xl tracking-tight">Kyro</span>
           </div>
-          <span className="font-semibold text-zinc-300">Kyro Context OS</span>
+
+          {/* Bottom Bar */}
+          <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-white/10 border-dashed text-zinc-500">
+            <p>&copy; {new Date().getFullYear()} Kyro. All rights reserved.</p>
+            <div className="flex items-center gap-4 mt-4 md:mt-0">
+              <a href="https://github.com/puneetnith28/Kyro" target="_blank" rel="noreferrer" className="text-zinc-400 hover:text-white transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.02c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A4.37 4.37 0 0 0 9 18.13V22"></path>
+                </svg>
+              </a>
+            </div>
+          </div>
         </div>
-        <p>&copy; {new Date().getFullYear()} Kyro. All rights reserved.</p>
       </footer>
-    </div>
+    </GridBackground>
   );
 }

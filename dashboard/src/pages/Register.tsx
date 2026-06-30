@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GridBackground from '../components/GridBackground';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -39,8 +40,9 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-animate text-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Decorative ambient light */}
+    <GridBackground>
+      <div className="flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative w-full h-full flex-1 min-h-[80vh]">
+        {/* Decorative ambient light */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none"></div>
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md z-10">
@@ -140,7 +142,8 @@ export default function Register() {
             </div>
           </form>
         </motion.div>
+        </div>
       </div>
-    </div>
+    </GridBackground>
   );
 }
