@@ -10,18 +10,34 @@ model = genai.GenerativeModel('gemini-1.5-pro')
 
 router = APIRouter()
 
+recent_captures = []
+
 @router.post("/capture")
 async def capture_context(request: ContextCaptureRequest):
     """
     Endpoint for the browser extension to push captured context.
     """
     try:
+        # Cache for the live feed
+        global recent_captures
+        capture_data = request.dict()
+        recent_captures.insert(0, capture_data)
+        if len(recent_captures) > 50:
+            recent_captures.pop()
+            
         # Send data to Cognee memory service
-        await add_memory(request.dict())
+        await add_memory(capture_data)
         print(f"Captured and Cognitified: {request.title} from {request.domain}")
         return {"status": "success", "message": "Context captured and sent to memory pipeline."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/recent")
+async def get_recent_captures():
+    """
+    Endpoint to fetch the recent memory captures for the Live Feed.
+    """
+    return {"captures": recent_captures}
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):

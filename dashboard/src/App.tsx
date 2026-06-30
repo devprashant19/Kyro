@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Menu, Search, Home, FileText, Star, Settings, 
-  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network
+  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network, Clock
 } from 'lucide-react';
 import GraphVisualizer from './components/GraphVisualizer';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('All Pages');
+  const [activeTab, setActiveTab] = useState('Live Feed');
   const [isTyping, setIsTyping] = useState(false);
 
   return (
@@ -48,7 +48,7 @@ function App() {
 
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-6">
           <div className="space-y-0.5">
-            <SidebarItem icon={<Home size={16} />} label="All Pages" active={activeTab === 'All Pages'} onClick={() => setActiveTab('All Pages')} />
+            <SidebarItem icon={<Clock size={16} />} label="Live Feed" active={activeTab === 'Live Feed'} onClick={() => setActiveTab('Live Feed')} />
             <SidebarItem icon={<MessageSquare size={16} />} label="Chat" active={activeTab === 'Chat'} onClick={() => setActiveTab('Chat')} />
             <SidebarItem icon={<Network size={16} />} label="Brain" active={activeTab === 'Brain'} onClick={() => setActiveTab('Brain')} />
             <SidebarItem icon={<Star size={16} />} label="Favorites" active={activeTab === 'Favorites'} onClick={() => setActiveTab('Favorites')} />
@@ -114,15 +114,8 @@ function App() {
               {activeTab}
             </h1>
             
-            {activeTab === 'All Pages' && (
-              <div className="space-y-5 text-lg text-zinc-300 leading-[1.7] relative z-10">
-                <p className="prose-editor min-h-[1.5em]" contentEditable suppressContentEditableWarning data-placeholder="Type '/' for commands">
-                  Welcome to your new Kyro dashboard. This interface is built with React and TailwindCSS, bringing the beautiful dark glassmorphic aesthetics directly into your local environment.
-                </p>
-                <p className="prose-editor min-h-[1.5em]" contentEditable suppressContentEditableWarning>
-                  Try clicking around and typing. The backend can inject RAG context or memory captures seamlessly into this editor experience.
-                </p>
-              </div>
+            {activeTab === 'Live Feed' && (
+              <LiveFeed />
             )}
 
             {activeTab === 'Brain' && (
@@ -262,6 +255,52 @@ function SidebarItem({ icon, label, active = false, onClick = () => {} }) {
       <span className={`${active ? 'text-blue-400' : 'text-zinc-500'}`}>{icon}</span>
       {label}
     </button>
+  );
+}
+
+function LiveFeed() {
+  const [captures, setCaptures] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCaptures = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/recent');
+      const data = await res.json();
+      setCaptures(data.captures || []);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchCaptures();
+    const interval = setInterval(fetchCaptures, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) return <div className="text-zinc-500 animate-pulse">Loading live feed...</div>;
+  if (captures.length === 0) return <div className="text-zinc-500">No context captured yet. Try using ChatGPT with the extension!</div>;
+
+  return (
+    <div className="space-y-4">
+      {captures.map((cap, i) => (
+        <div key={i} className="glass-card p-5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+              {cap.title}
+            </h3>
+            <span className="text-xs text-zinc-500">{new Date(cap.timestamp).toLocaleTimeString()}</span>
+          </div>
+          <p className="text-sm text-zinc-400 mb-3">{cap.text}</p>
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-mono bg-white/5 px-2 py-1 rounded text-zinc-500">{cap.domain}</span>
+            <a href={cap.url} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300">View Source</a>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
