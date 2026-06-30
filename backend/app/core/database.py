@@ -1,0 +1,198 @@
+"""
+Kyro Database Layer
+-------------------
+Provides a dedicated PostgreSQL connection for Kyro's own `kyro_captures` table.
+This is separate from Cognee's internal data layer.
+
+Tables:
+  kyro_captures — durable persistence for every browser extension capture.
+
+Indexes (created automatically on startup):
+  idx_captures_domain      — fast filtering by source website
+  idx_captures_type        — fast filtering by capture type (web_page, email, etc.)
+  idx_captures_captured_at — fast chronological sort for the Timeline view
+  idx_captures_text_fts    — GIN index for full-text search over captured content
+
+All DDL uses IF NOT EXISTS so it is safe to run on every startup (idempotent).
+Graceful degradation: if PostgreSQL is not available, DB operations are silently
+skipped so the in-memory fallback continues to serve the app.
+"""
+
+import os
+import json
+import datetime
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+# ── Optional SQLAlchemy async import ──────────────────────────────────────────
+try:
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import text
+    SQLALCHEMY_AVAILABLE = True
+except ImportError:
+    SQLALCHEMY_AVAILABLE = False
+    logger.warning("sqlalchemy not installed. DB persistence layer disabled.")
+
+# ── Connection config ─────────────────────────────────────────────────────────
+def _build_db_url() -> str:
+    host     = os.getenv("DB_HOST",     "localhost")
+    port     = os.getenv("DB_PORT",     "5432")
+    name     = os.getenv("DB_NAME",     "cognee_db")
+    user     = os.getenv("DB_USERNAME", "cognee")
+    password = os.getenv("DB_PASSWORD", "cognee")
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+
+# Module-level engine (created lazily in init_db)
+_engine = None
+_async_session = None
+
+
+# ── DDL ───────────────────────────────────────────────────────────────────────
+_CREATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS kyro_captures (
+    id           BIGSERIAL PRIMARY KEY,
+    url          TEXT        NOT NULL,
+    title        TEXT        NOT NULL,
+    domain       TEXT        NOT NULL DEFAULT '',
+    type         TEXT        NOT NULL DEFAULT 'web_page',
+    text_content TEXT,
+    metadata     JSONB,
+    captured_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+"""
+
+# Optimised indexes — created individually so a failure on one doesn't block others
+_INDEX_STATEMENTS = [
+    # B-Tree indexes for exact/range lookups
+    "CREATE INDEX IF NOT EXISTS idx_captures_domain      ON kyro_captures (domain);",
+    "CREATE INDEX IF NOT EXISTS idx_captures_type        ON kyro_captures (type);",
+    "CREATE INDEX IF NOT EXISTS idx_captures_captured_at ON kyro_captures (captured_at DESC);",
+    # Composite index for the Timeline query (ORDER BY captured_at, filter by domain)
+    "CREATE INDEX IF NOT EXISTS idx_captures_domain_time ON kyro_captures (domain, captured_at DESC);",
+    # GIN index for full-text search — forward-looking for a /search endpoint
+    "CREATE INDEX IF NOT EXISTS idx_captures_text_fts ON kyro_captures USING GIN (to_tsvector('english', COALESCE(text_content, '')));",
+]
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+async def init_db():
+    """
+    Called once at application startup.
+    Creates the kyro_captures table and all performance indexes if they don't exist.
+    Silently skips if PostgreSQL is unreachable (graceful degradation).
+    """
+    global _engine, _async_session
+    if not SQLALCHEMY_AVAILABLE:
+        return
+
+    try:
+        db_url = _build_db_url()
+        _engine = create_async_engine(
+            db_url,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,          # Detect stale connections
+            connect_args={"server_settings": {"application_name": "kyro-backend"}},
+        )
+        _async_session = sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
+
+        async with _engine.begin() as conn:
+            # Create table
+            await conn.execute(text(_CREATE_TABLE_SQL))
+            # Apply indexes one by one
+            for stmt in _INDEX_STATEMENTS:
+                try:
+                    await conn.execute(text(stmt))
+                except Exception as idx_err:
+                    logger.warning(f"Index creation skipped (may already exist): {idx_err}")
+
+        logger.info("✅ PostgreSQL: kyro_captures table and indexes ready.")
+
+    except Exception as e:
+        logger.warning(f"⚠️  PostgreSQL unavailable — running with in-memory store only: {e}")
+        _engine = None
+        _async_session = None
+
+
+async def close_db():
+    """Dispose the connection pool on application shutdown."""
+    global _engine
+    if _engine:
+        await _engine.dispose()
+        logger.info("PostgreSQL connection pool closed.")
+
+
+async def persist_capture(capture: dict) -> bool:
+    """
+    Insert a single capture record into kyro_captures.
+    Returns True on success, False on failure (so caller can fall back gracefully).
+    """
+    if not _async_session:
+        return False
+    try:
+        async with _async_session() as session:
+            async with session.begin():
+                await session.execute(
+                    text("""
+                        INSERT INTO kyro_captures
+                            (url, title, domain, type, text_content, metadata, captured_at)
+                        VALUES
+                            (:url, :title, :domain, :type, :text_content, :metadata, :captured_at)
+                    """),
+                    {
+                        "url":          str(capture.get("url", "")),
+                        "title":        capture.get("title", ""),
+                        "domain":       capture.get("domain", ""),
+                        "type":         capture.get("type", "web_page"),
+                        "text_content": capture.get("text", ""),
+                        "metadata":     json.dumps(capture.get("metadata")) if capture.get("metadata") else None,
+                        "captured_at":  capture.get("timestamp", datetime.datetime.utcnow().isoformat()),
+                    }
+                )
+        return True
+    except Exception as e:
+        logger.error(f"DB persist_capture failed: {e}")
+        return False
+
+
+async def fetch_recent_captures(limit: int = 50) -> list:
+    """
+    Fetch the most recent captures from PostgreSQL for server-restart recovery.
+    Returns an empty list if DB is unavailable.
+    """
+    if not _async_session:
+        return []
+    try:
+        async with _async_session() as session:
+            result = await session.execute(
+                text("""
+                    SELECT url, title, domain, type, text_content AS text, metadata, captured_at
+                    FROM   kyro_captures
+                    ORDER  BY captured_at DESC
+                    LIMIT  :limit
+                """),
+                {"limit": limit}
+            )
+            rows = result.mappings().all()
+            captures = []
+            for row in rows:
+                captures.append({
+                    "url":       row["url"],
+                    "title":     row["title"],
+                    "domain":    row["domain"],
+                    "type":      row["type"],
+                    "text":      row["text"],
+                    "metadata":  json.loads(row["metadata"]) if row["metadata"] else None,
+                    "timestamp": row["captured_at"].isoformat() if row["captured_at"] else None,
+                })
+            return captures
+    except Exception as e:
+        logger.error(f"DB fetch_recent_captures failed: {e}")
+        return []
+
+
+def is_db_connected() -> bool:
+    """Returns True if a live DB connection pool exists."""
+    return _engine is not None

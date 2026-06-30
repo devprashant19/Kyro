@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse, FeedbackRequest, CustomIngestionRequest
 from app.services.memory_service import add_memory, search_memories, prune_stale_memories
+from app.services.cache_service import cache, KEY_ACTIVITY, KEY_CLUSTERS, KEY_REPORT, TTL_ACTIVITY, TTL_CLUSTERS, TTL_REPORT
+from app.core.database import persist_capture, fetch_recent_captures, is_db_connected
 import google.generativeai as genai
 import os
 import json
@@ -22,15 +24,26 @@ async def capture_context(request: ContextCaptureRequest):
     Endpoint for the browser extension to push captured context.
     """
     try:
-        # Cache for the live feed
+        # 1. Keep the in-memory hot-cache for the live feed (fastest)
         global recent_captures
         capture_data = request.dict()
         recent_captures.insert(0, capture_data)
         if len(recent_captures) > 50:
             recent_captures.pop()
             
-        # Send data to Cognee memory service
+        # 2. Persist durably to PostgreSQL (survives server restarts)
+        persisted = await persist_capture(capture_data)
+        if persisted:
+            logger.info(f"Persisted to DB: {request.title}")
+        else:
+            logger.debug("DB not available — capture stored in-memory only.")
+
+        # 3. Send data to Cognee knowledge graph / RAG pipeline
         await add_memory(capture_data)
+        
+        # 4. Invalidate the activity heatmap cache so next request reflects new data
+        await cache.invalidate(KEY_ACTIVITY)
+        
         logger.info(f"Captured and Cognitified: {request.title} from {request.domain}")
         return {"status": "success", "message": "Context captured and sent to memory pipeline."}
     except Exception as e:
@@ -85,8 +98,22 @@ async def websocket_capture(websocket: WebSocket):
 async def get_recent_captures():
     """
     Endpoint to fetch the recent memory captures for the Live Feed.
+    Serves from the in-memory hot-cache first; falls back to PostgreSQL
+    after a server restart (when the hot-cache is empty).
     """
-    return {"captures": recent_captures}
+    global recent_captures
+    if recent_captures:
+        return {"captures": recent_captures}
+    
+    # Fallback: hydrate from PostgreSQL
+    if is_db_connected():
+        logger.info("In-memory cache empty — hydrating from PostgreSQL...")
+        db_captures = await fetch_recent_captures(limit=50)
+        if db_captures:
+            recent_captures = db_captures  # Re-warm the in-memory cache
+        return {"captures": db_captures}
+    
+    return {"captures": []}
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -591,15 +618,22 @@ async def get_concept_clusters():
 async def export_data():
     """
     Exports the user's graph data (recent captures and metadata) as a JSON file.
+    Falls back to DB if in-memory captures are empty.
     """
     import datetime
     try:
         global recent_captures
+        export_list = recent_captures
+        
+        if not export_list and is_db_connected():
+            logger.info("Hydrating export data from PostgreSQL...")
+            export_list = await fetch_recent_captures(limit=1000) # Fetch more for export
+            
         export_data = {
             "version": "1.0",
             "exported_at": datetime.datetime.utcnow().isoformat(),
-            "memories_count": len(recent_captures),
-            "memories": recent_captures
+            "memories_count": len(export_list),
+            "memories": export_list
         }
         return export_data
     except Exception as e:

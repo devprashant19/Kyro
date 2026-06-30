@@ -13,7 +13,7 @@ COPY . /app
 
 # Install Python dependencies
 # Since we don't have a requirements.txt yet, we'll install them manually
-RUN pip install --no-cache-dir fastapi uvicorn pydantic cognee google-generativeai python-dotenv psycopg2-binary asyncpg sqlalchemy pgvector
+RUN pip install --no-cache-dir fastapi uvicorn pydantic cognee google-generativeai python-dotenv psycopg2-binary asyncpg sqlalchemy pgvector "redis[asyncio]"
 
 EXPOSE 8000
 

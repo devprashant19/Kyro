@@ -9,6 +9,8 @@ from contextlib import asynccontextmanager
 
 from app.api.endpoints import router as api_router
 from app.services.memory_service import setup_cognee
+from app.services.cache_service import cache
+from app.core.database import init_db, close_db
 from app.utils.logger import get_logger
 from app.core.config import settings
 
@@ -26,8 +28,12 @@ if settings.DEBUG_MODE is False and settings.SENTRY_DSN:
 async def lifespan(app: FastAPI):
     logger.info("Initializing Kyro Backend and Cognee Memory System...")
     await setup_cognee()
+    await cache.connect()
+    await init_db()
     logger.info("Kyro Backend Started successfully.")
     yield
+    await cache.disconnect()
+    await close_db()
     logger.info("Kyro Backend Shutdown.")
 
 app = FastAPI(
@@ -67,6 +73,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": "Validation Error", "errors": formatted_errors}
     )
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
