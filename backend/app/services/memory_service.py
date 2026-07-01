@@ -1,5 +1,16 @@
 from dotenv import load_dotenv
+
+import os
 import cognee
+cognee.config.set_llm_provider("gemini")
+cognee.config.set_llm_model("gemini/gemini-2.5-flash")
+cognee.config.set_llm_api_key(os.getenv("GEMINI_API_KEY"))
+
+cognee.config.set_embedding_provider("gemini")
+cognee.config.set_embedding_model("gemini/text-embedding-004")
+cognee.config.set_embedding_api_key(os.getenv("GEMINI_API_KEY"))
+
+import asyncio
 
 load_dotenv()
 
@@ -7,13 +18,12 @@ async def setup_cognee():
     """Initialize Cognee with Gemini LLM provider"""
     # Note: Currently assumes Gemini API key is in environment variables.
     cognee.config.set_llm_provider("gemini")
-    cognee.config.set_llm_model("gemini-1.5-pro")
+    cognee.config.set_llm_model("gemini/gemini-2.5-flash")
     
     # We use local LanceDB/NetworkX by default in Cognee for MVP
     # Later we can configure PostgreSQL here.
     
     # Ensure system is ready
-    await cognee.prune.prune_system(metadata=True)
     print("Cognee Initialized with Gemini")
 
 def semantic_chunk_text(text: str, max_chunk_size: int = 1000) -> list[str]:
@@ -100,8 +110,8 @@ async def add_memory(context_data: dict):
         chunk_text = f"{source_tag} (Part {i+1}/{len(chunks)})\n{chunk}"
         await cognee.add(chunk_text, dataset_name=dataset_name)
     
-    # Trigger cognitify to process added information into graph
-    await cognee.cognitify()
+    # Trigger cognify to process added information into graph
+    await cognee.cognify()
     
     return True
 
@@ -130,7 +140,7 @@ async def search_memories(query: str):
     
     # 1. Vector Search Pass (Semantic Similarity)
     try:
-        vector_results = await cognee.search(query, search_type="SIMILARITY")
+        vector_results = await cognee.search(query)
     except Exception as e:
         print(f"Vector search error: {e}")
         vector_results = []

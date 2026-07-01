@@ -13,6 +13,7 @@ function connectWebSocket() {
   socket.onopen = () => {
     console.log("Kyro: WebSocket connection established.");
     isConnecting = false;
+    flushQueue();
   };
 
   socket.onmessage = (event) => {
@@ -63,23 +64,24 @@ function saveQueueToStorage() {
   chrome.storage.local.set({ [STORAGE_KEY]: captureQueue });
 }
 
+function flushQueue() {
+  if (captureQueue.length > 0 && socket && socket.readyState === WebSocket.OPEN) {
+    console.log(`Kyro: Flushing batch of ${captureQueue.length} items to backend...`);
+    socket.send(JSON.stringify({
+      type: "BATCH",
+      deviceId: deviceId,
+      payloads: captureQueue
+    }));
+    captureQueue = [];
+    saveQueueToStorage();
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log("Kyro Context Tracker installed.");
   connectWebSocket();
 
-  // Start the batch processor
-  setInterval(() => {
-    if (captureQueue.length > 0 && socket && socket.readyState === WebSocket.OPEN) {
-      console.log(`Kyro: Flushing batch of ${captureQueue.length} items to backend...`);
-      socket.send(JSON.stringify({
-        type: "BATCH",
-        deviceId: deviceId,
-        payloads: captureQueue
-      }));
-      captureQueue = []; // Clear the queue after sending
-      saveQueueToStorage(); // Clear storage as well
-    }
-  }, 3000);
+
 
   // Set up daily graph pruning automation
   chrome.alarms.create("kyro-graph-prune", { periodInMinutes: 24 * 60 });
@@ -130,6 +132,10 @@ chrome.runtime.onMessage.addListener((message: any, _sender: chrome.runtime.Mess
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       console.warn("WebSocket is not open. Trying to reconnect...");
       connectWebSocket();
+      // flush after a tiny delay to allow socket to connect
+      setTimeout(flushQueue, 1000);
+    } else {
+      flushQueue();
     }
 
     sendResponse({ status: "success", message: "Queued for batch transmission" });
@@ -138,16 +144,54 @@ chrome.runtime.onMessage.addListener((message: any, _sender: chrome.runtime.Mess
 
   if (message.type === "RETRIEVE_CONTEXT") {
     console.log(`Kyro: Retrieving context for query: "${message.query}"`);
-    fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/retrieve?q=${encodeURIComponent(message.query)}&deviceId=${deviceId || ''}`)
-      .then(res => res.json())
-      .then(data => {
-        sendResponse({ status: "success", memories: data.memories || [] });
-      })
-      .catch(err => {
-        console.error("Kyro: Retrieval error:", err);
-        sendResponse({ status: "error", error: err.message, memories: [] });
-      });
+    // Check cache first
+    chrome.storage.local.get(['kyro_cache_' + message.query], (result) => {
+      const cached = result['kyro_cache_' + message.query] as {timestamp: number, memories: string[]};
+      if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour TTL
+        console.log("Kyro: Returned from local cache (Zero Latency)");
+        sendResponse({ status: "success", memories: cached.memories, cached: true });
+        return;
+      }
+      
+      // If not in cache or expired, fetch from backend
+      fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/retrieve?q=${encodeURIComponent(message.query)}&deviceId=${deviceId || ''}`)
+        .then(res => res.json())
+        .then(data => {
+          const memories = data.memories || [];
+          
+          // Save to cache
+          chrome.storage.local.set({
+            ['kyro_cache_' + message.query]: {
+              memories: memories,
+              timestamp: Date.now()
+            }
+          });
+          
+          sendResponse({ status: "success", memories: memories, cached: false });
+        })
+        .catch(err => {
+          console.error("Kyro: Retrieval error:", err);
+          sendResponse({ status: "error", error: err.message, memories: [] });
+        });
+    });
     return true; // Keep message channel open for async response
+  }
+
+  if (message.type === "SEND_FEEDBACK") {
+    fetch("http://localhost:8000/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memory_id: message.memory_id,
+        rating: message.rating
+      })
+    }).then(res => res.json())
+      .then(data => sendResponse(data))
+      .catch(err => {
+        console.error("Kyro Feedback Error:", err);
+        sendResponse({ status: "error", message: err.toString() });
+      });
+    return true;
   }
 });
 

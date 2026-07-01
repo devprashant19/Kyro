@@ -59,3 +59,6 @@ function interceptGemini() {
 }
 
 interceptGemini();
+
+import { setupOverlay } from './overlay';
+setupOverlay(getPromptTextArea);
