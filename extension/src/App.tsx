@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Upload, Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw } from 'lucide-react';
+import { useAuth } from '@clerk/chrome-extension';
 import { Onboarding } from './components/Onboarding';
 import { Auth } from './components/Auth';
 
@@ -9,13 +10,12 @@ function App() {
   const [backendConnected, setBackendConnected] = useState(false);
   const [recentCaptures, setRecentCaptures] = useState<any[]>([]);
 
+  // Clerk Auth State
+  const { isLoaded, isSignedIn, signOut } = useAuth();
+
   // Routing State
   const [showOnboarding, setShowOnboarding] = useState(() => {
     return localStorage.getItem('kyro_onboarding_complete') !== 'true';
-  });
-  const [showAuth, setShowAuth] = useState(() => {
-    // If onboarding is done but auth isn't, show auth. (For MVP we default false if they skip).
-    return localStorage.getItem('kyro_onboarding_complete') === 'true' && localStorage.getItem('kyro_auth_complete') !== 'true';
   });
 
   useEffect(() => {
@@ -54,14 +54,16 @@ function App() {
     return <Onboarding onComplete={() => {
       localStorage.setItem('kyro_onboarding_complete', 'true');
       setShowOnboarding(false);
-      setShowAuth(true);
     }} />;
   }
 
-  if (showAuth) {
+  if (!isLoaded) {
+    return <div className="h-screen bg-[#0f172a] text-white flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!isSignedIn) {
     return <Auth onComplete={() => {
-      localStorage.setItem('kyro_auth_complete', 'true');
-      setShowAuth(false);
+      // In dev mode, they can skip. In production, we don't use this.
     }} />;
   }
 
@@ -86,16 +88,24 @@ function App() {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsActive(!isActive)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 shadow-sm border ${isActive
-              ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50 hover:shadow-[0_0_10px_rgba(59,130,246,0.3)]'
-              : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300'
-            }`}
-        >
-          <Power size={12} className={isActive ? 'animate-pulse' : ''} />
-          {isActive ? 'Active' : 'Paused'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => signOut()}
+            className="text-xs font-medium bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 text-zinc-300"
+          >
+            <Power size={12} className="text-red-400" /> Sign Out
+          </button>
+          <button 
+            onClick={() => setIsActive(!isActive)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 shadow-sm border ${isActive
+                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50 hover:shadow-[0_0_10px_rgba(59,130,246,0.3)]'
+                : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300'
+              }`}
+          >
+            <Power size={12} className={isActive ? 'animate-pulse' : ''} />
+            {isActive ? 'Active' : 'Paused'}
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}

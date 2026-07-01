@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   Menu, Search, FileText, Star, Settings, 
-  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network, Clock, Inbox, BarChart2, TrendingUp, DownloadCloud, GitCommit, Bot, Mail, LogOut
+  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network, Clock, Inbox, BarChart2, TrendingUp, DownloadCloud, GitCommit, Bot, Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GraphVisualizer from '../components/GraphVisualizer';
-import { useAuth } from '../context/AuthContext';
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('Live Feed');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const { logout } = useAuth();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

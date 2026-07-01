@@ -1,24 +1,27 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import { SignInPage } from './pages/SignIn';
+import { SignUpPage } from './pages/SignUp';
 import DashboardLayout from './pages/DashboardLayout';
 import AppLayout from './components/AppLayout';
 import AppHome from './pages/AppHome';
 import ExtensionPage from './pages/ExtensionPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { useAuth } from './context/AuthContext';
 
 export default function App() {
-  const { isAuthenticated } = useAuth();
+  const { isLoaded, isSignedIn } = useClerkAuth();
+
+  if (!isLoaded) return <div className="h-screen bg-[#0f172a] text-white flex items-center justify-center">Loading...</div>;
 
   return (
     <Routes>
-      <Route path="/" element={isAuthenticated ? <Navigate to="/app" /> : <LandingPage />} />
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/app" /> : <Login />} />
-      <Route path="/register" element={isAuthenticated ? <Navigate to="/app" /> : <Register />} />
+      <Route path="/" element={isSignedIn ? <Navigate to="/app" /> : <LandingPage />} />
+      <Route path="/sign-in/*" element={isSignedIn ? <Navigate to="/app" /> : <SignInPage />} />
+      <Route path="/sign-up/*" element={isSignedIn ? <Navigate to="/app" /> : <SignUpPage />} />
       
+      {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/app" element={<AppHome />} />

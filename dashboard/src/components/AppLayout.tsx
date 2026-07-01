@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Menu, X, User, LogOut, LayoutDashboard, Settings, Compass, Blocks, ChevronDown } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 
@@ -9,7 +9,8 @@ export default function AppLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const { logout } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const navigate = useNavigate();
 
   // Close profile dropdown on click outside
@@ -24,8 +25,7 @@ export default function AppLayout() {
   }, []);
 
   const handleLogout = () => {
-    logout();
-    navigate('/');
+    signOut(() => navigate('/'));
   };
 
   const navLinks = [
@@ -83,10 +83,14 @@ export default function AppLayout() {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="flex items-center gap-2 p-1 pl-2 pr-3 bg-zinc-900/50 hover:bg-zinc-800 border border-white/10 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center border border-white/10">
-                <User size={16} className="text-white" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center border border-white/10 overflow-hidden">
+                {user?.imageUrl ? (
+                  <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={16} className="text-white" />
+                )}
               </div>
-              <span className="hidden sm:block text-sm font-medium text-zinc-300">Jane Doe</span>
+              <span className="hidden sm:block text-sm font-medium text-zinc-300">{user?.fullName || 'User'}</span>
               <ChevronDown size={14} className={cn("text-zinc-500 transition-transform hidden sm:block", isProfileOpen && "rotate-180")} />
             </button>
 
@@ -100,8 +104,8 @@ export default function AppLayout() {
                   className="absolute right-0 mt-2 w-64 glass-card rounded-2xl border border-white/10 shadow-2xl overflow-hidden z-50 origin-top-right"
                 >
                   <div className="p-4 border-b border-white/10 bg-white/5">
-                    <p className="font-semibold text-white">Jane Doe</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">jane@kyro.ai</p>
+                    <p className="font-semibold text-white">{user?.fullName || 'User'}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">{user?.primaryEmailAddress?.emailAddress || 'user@example.com'}</p>
                   </div>
                   <div className="p-2">
                     <button 

@@ -1,12 +1,14 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@clerk/clerk-react';
 
 export const ProtectedRoute: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (!isLoaded) return null;
+
+  if (!isSignedIn) {
+    return <Navigate to="/sign-in" replace />;
   }
 
   return <Outlet />;

@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, BrainCircuit, Blocks, Sparkles, LayoutDashboard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import GridBackground from '../components/GridBackground';
 
 export default function AppHome() {
   const navigate = useNavigate();
+  const { user } = useUser();
 
   return (
     <GridBackground>
@@ -21,7 +23,7 @@ export default function AppHome() {
             Personal Workspace
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 mb-6 tracking-tight">
-            Welcome back, Jane
+            Welcome back, {user?.firstName || 'User'}
           </h1>
           <p className="text-lg md:text-xl text-zinc-400 leading-relaxed font-light mb-8">
             Your context OS is running perfectly. Kyro has been silently synthesizing your research across platforms into a unified knowledge graph.

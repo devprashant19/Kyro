@@ -1,29 +1,40 @@
-import { LogIn } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import { SignIn } from '@clerk/chrome-extension';
 
 interface AuthProps {
   onComplete: () => void;
 }
 
 export function Auth({ onComplete }: AuthProps) {
+  const openSignUp = () => {
+    window.open('http://localhost:5173/sign-up', '_blank');
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-[#0f172a] text-white p-6 relative overflow-hidden justify-center items-center">
+    <div className="flex flex-col min-h-screen bg-[#0f172a] text-white p-6 relative overflow-y-auto justify-center items-center">
       {/* Decorative ambient light */}
       <div className="absolute top-0 right-1/4 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] pointer-events-none"></div>
 
-      <div className="bg-zinc-800/50 p-4 rounded-2xl border border-white/5 mb-6 shadow-xl">
-        <LogIn size={40} className="text-blue-400" />
+      <div className="w-full max-w-sm z-10 flex flex-col items-center">
+        <SignIn routing="hash" />
       </div>
-      
-      <h1 className="text-xl font-bold mb-2">Authentication Required</h1>
-      <p className="text-center text-zinc-400 text-sm mb-8 px-4 leading-relaxed">
-        This is a placeholder for the authentication system. We will implement Clerk or OAuth here in the next step.
-      </p>
 
+      <div className="mt-8 z-10 flex flex-col items-center">
+        <p className="text-zinc-400 text-sm mb-3">Don't have an account?</p>
+        <button 
+          onClick={openSignUp}
+          className="flex items-center gap-2 py-2 px-4 rounded-xl font-medium text-sm border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+        >
+          Sign up on Dashboard <ExternalLink size={14} />
+        </button>
+      </div>
+
+      {/* Hidden button for dev testing if needed to skip auth */}
       <button 
         onClick={onComplete}
-        className="w-full max-w-[200px] py-3 px-4 rounded-xl font-semibold text-sm bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all"
+        className="absolute bottom-4 right-4 opacity-10 hover:opacity-100 text-xs text-zinc-500"
       >
-        Skip Auth (Dev)
+        Skip (Dev)
       </button>
     </div>
   );

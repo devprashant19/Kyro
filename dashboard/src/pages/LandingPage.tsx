@@ -24,10 +24,10 @@ export default function LandingPage() {
           Kyro
         </div>
         <div className="flex items-center gap-4">
-          <Link to="/login" className="text-zinc-400 hover:text-white font-medium transition-colors text-sm">
+          <Link to="/sign-in" className="text-zinc-400 hover:text-white font-medium transition-colors text-sm">
             Sign In
           </Link>
-          <Link to="/register" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+          <Link to="/sign-up" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
             Get Started
           </Link>
         </div>
@@ -60,7 +60,7 @@ export default function LandingPage() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="flex flex-col sm:flex-row gap-4"
         >
-          <button onClick={() => navigate('/register')} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 text-lg">
+          <button onClick={() => navigate('/sign-up')} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 text-lg">
             Start Building Your Brain <ArrowRight size={20} />
           </button>
           <button onClick={() => window.open('https://github.com/puneetnith28/Kyro')} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2 text-lg">
