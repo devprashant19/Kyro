@@ -49,3 +49,6 @@ function interceptPerplexity() {
 }
 
 interceptPerplexity();
+
+import { setupOverlay } from './overlay';
+setupOverlay(getPromptTextArea);

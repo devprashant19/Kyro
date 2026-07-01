@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request, UploadFile, File, Query
 from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse, FeedbackRequest, CustomIngestionRequest
 from app.services.memory_service import add_memory, search_memories, prune_stale_memories
 from app.services.cache_service import cache, KEY_ACTIVITY
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 # Initialize Gemini
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-pro')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 router = APIRouter()
 
@@ -179,6 +179,21 @@ async def chat(request: ChatRequest):
         )
     except Exception as e:
         logger.error(f"Error during chat: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/retrieve")
+async def retrieve_context(q: str = Query(..., description="The query string"), deviceId: str = None):
+    """
+    Endpoint for the browser extension to retrieve context for prompt injection.
+    """
+    try:
+        if not q or len(q.strip()) < 5:
+            return {"status": "success", "memories": []}
+            
+        memories = await search_memories(q)
+        return {"status": "success", "memories": memories}
+    except Exception as e:
+        logger.error(f"Error retrieving context: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/graph", response_model=GraphResponse)

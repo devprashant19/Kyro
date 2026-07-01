@@ -52,3 +52,6 @@ function interceptClaude() {
 }
 
 interceptClaude();
+
+import { setupOverlay } from './overlay';
+setupOverlay(getPromptTextArea);

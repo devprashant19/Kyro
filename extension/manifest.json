@@ -42,7 +42,8 @@
         "https://github.com/*",
         "https://medium.com/*",
         "https://dev.to/*",
-        "https://www.youtube.com/*"
+        "https://www.youtube.com/*",
+        "https://*.wikipedia.org/*"
       ],
       "js": [
         "src/content/index.ts"
