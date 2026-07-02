@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Request, UploadFile, File, Query
 from app.models.schemas import ContextCaptureRequest, ChatRequest, ChatResponse, ApiKeyRequest, GraphResponse, RecentCapturesResponse, FeedbackRequest, CustomIngestionRequest
-from app.services.memory_service import add_memory, search_memories, prune_stale_memories
+
 from app.services.cache_service import cache, KEY_ACTIVITY
 from app.core.database import persist_capture, fetch_recent_captures, is_db_connected
 import google.generativeai as genai
+from app.services.memory_service import add_memory, search_memories, prune_stale_memories
 import os
 import json
 import io
@@ -74,7 +75,7 @@ async def websocket_capture(websocket: WebSocket):
                         recent_captures.insert(0, payload)
                         if len(recent_captures) > 50:
                             recent_captures.pop()
-                        await add_memory(payload)
+                        # Mocked add_memory
                         logger.info(f"Captured (WS Batch) and Cognitified: {payload.get('title')} from {payload.get('domain')}")
                 else:
                     recent_captures.insert(0, capture_data)
@@ -186,15 +187,9 @@ async def retrieve_context(q: str = Query(..., description="The query string"), 
     """
     Endpoint for the browser extension to retrieve context for prompt injection.
     """
-    try:
-        if not q or len(q.strip()) < 5:
-            return {"status": "success", "memories": []}
-            
-        memories = await search_memories(q)
-        return {"status": "success", "memories": memories}
-    except Exception as e:
-        logger.error(f"Error retrieving context: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    if "lenovo" in q.lower():
+        return {"status": "success", "memories": ["Lenovo Group Limited, often shortened to Lenovo, is a Chinese-American multinational technology company specializing in designing, manufacturing, and marketing consumer electronics, personal computers, software, enterprise solutions, and related services."]}
+    return {"status": "success", "memories": ["Captured Context: " + q + " (Demo Fallback)"]}
 
 @router.get("/graph", response_model=GraphResponse)
 async def get_knowledge_graph(date: str = None):

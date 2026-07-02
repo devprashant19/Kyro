@@ -2,12 +2,12 @@ from dotenv import load_dotenv
 
 import os
 import cognee
-cognee.config.set_llm_provider("gemini")
-cognee.config.set_llm_model("gemini/gemini-2.5-flash")
-cognee.config.set_llm_api_key(os.getenv("GEMINI_API_KEY"))
+cognee.config.set_llm_provider("anthropic")
+cognee.config.set_llm_model("claude-3-opus-20240229")
+cognee.config.set_llm_api_key(os.getenv("ANTHROPIC_API_KEY"))
 
 cognee.config.set_embedding_provider("gemini")
-cognee.config.set_embedding_model("gemini/text-embedding-004")
+cognee.config.set_embedding_model("gemini/embedding-001")
 cognee.config.set_embedding_api_key(os.getenv("GEMINI_API_KEY"))
 
 import asyncio
@@ -17,8 +17,8 @@ load_dotenv()
 async def setup_cognee():
     """Initialize Cognee with Gemini LLM provider"""
     # Note: Currently assumes Gemini API key is in environment variables.
-    cognee.config.set_llm_provider("gemini")
-    cognee.config.set_llm_model("gemini/gemini-2.5-flash")
+    cognee.config.set_llm_provider("anthropic")
+    cognee.config.set_llm_model("claude-3-opus-20240229")
     
     # We use local LanceDB/NetworkX by default in Cognee for MVP
     # Later we can configure PostgreSQL here.
