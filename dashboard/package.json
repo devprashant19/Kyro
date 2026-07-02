@@ -19,14 +19,18 @@
     "lucide-react": "^1.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-force-graph-3d": "^1.29.1",
     "react-router-dom": "^7.18.0",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "^4.3.2"
+    "tailwindcss": "^4.3.2",
+    "three": "^0.185.1",
+    "three-spritetext": "^1.10.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.0",
     "@vitejs/plugin-react": "^6.0.2",
     "oxlint": "^1.69.0",
     "typescript": "~6.0.2",

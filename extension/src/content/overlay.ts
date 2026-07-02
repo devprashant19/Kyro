@@ -51,7 +51,7 @@ export function createOverlay() {
   return overlayContainer;
 }
 
-export function showMemories(memories: string[], textArea: HTMLElement) {
+export function showMemories(memories: any[], textArea: HTMLElement) {
   const container = createOverlay();
   const list = container.querySelector('#kyro-memory-list') as HTMLElement;
   list.innerHTML = ''; // clear old
@@ -62,6 +62,17 @@ export function showMemories(memories: string[], textArea: HTMLElement) {
   }
 
   memories.forEach(mem => {
+    let memoryText = "";
+    let memoryId = "";
+    
+    if (typeof mem === 'string') {
+      memoryText = mem;
+      memoryId = mem;
+    } else if (mem && typeof mem === 'object') {
+      memoryText = mem.text || JSON.stringify(mem);
+      memoryId = mem.id || memoryText;
+    }
+
     const item = document.createElement('div');
     item.style.cssText = `
       padding: 10px;
@@ -85,7 +96,7 @@ export function showMemories(memories: string[], textArea: HTMLElement) {
     
     const textNode = document.createElement('div');
     textNode.style.flex = "1";
-    textNode.innerText = mem;
+    textNode.innerText = memoryText;
     
     // Thumbs up / down container
     const actions = document.createElement('div');
@@ -105,7 +116,7 @@ export function showMemories(memories: string[], textArea: HTMLElement) {
     
     // Feedback handlers
     const sendFeedback = (rating: number, btn: HTMLButtonElement) => {
-      chrome.runtime.sendMessage({ type: "SEND_FEEDBACK", memory_id: mem, rating });
+      chrome.runtime.sendMessage({ type: "SEND_FEEDBACK", memory_id: memoryId, rating });
       btn.style.filter = "grayscale(0%)";
       btn.style.transform = "scale(1.2)";
       setTimeout(() => btn.style.transform = "scale(1)", 200);
@@ -144,7 +155,7 @@ export function showMemories(memories: string[], textArea: HTMLElement) {
 
     // Manual Injection Click Handler
     item.addEventListener('click', () => {
-      const injectionText = '\\n\\n[Kyro Context: ' + mem + ']\\n';
+      const injectionText = '\\n\\n[Kyro Context: ' + memoryText + ']\\n';
       if (textArea instanceof HTMLTextAreaElement) {
         textArea.value = textArea.value + injectionText;
         textArea.dispatchEvent(new Event('input', { bubbles: true })); // trigger react
@@ -182,7 +193,7 @@ export function setupOverlay(getTextAreaFn: () => HTMLElement | null) {
 
       if (lookupTimeout) clearTimeout(lookupTimeout);
 
-      if (text.trim().length > 10) { // Only lookup if they typed a decent amount
+      if (text.trim().length > 2) { // Only lookup if they typed a decent amount
         lookupTimeout = window.setTimeout(() => {
           chrome.runtime.sendMessage(
             { type: "RETRIEVE_CONTEXT", query: text },

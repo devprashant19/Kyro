@@ -1,70 +1,45 @@
-import { useEffect, useState, useCallback } from 'react';
-import {
-  ReactFlow,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  BackgroundVariant,
-} from '@xyflow/react';
-import type { Connection, Edge, Node } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import ForceGraph3D from 'react-force-graph-3d';
+import SpriteText from 'three-spritetext';
 import { Sparkles, RefreshCw, Network } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const getNodeStyle = (type: string) => {
-  let baseStyle = {
-    color: '#f8fafc',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    borderRadius: '12px',
-    padding: '12px 16px',
-    fontSize: '14px',
-    fontWeight: 500,
-    backdropFilter: 'blur(16px)',
-  };
-
+const getNodeColor = (type: string) => {
   switch (type) {
     case 'Person':
-      return {
-        ...baseStyle,
-        background: 'rgba(147, 51, 234, 0.6)', // Purple
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 20px 0 rgba(168, 85, 247, 0.4)',
-      };
+      return '#9333ea'; // Purple
     case 'Document':
-      return {
-        ...baseStyle,
-        background: 'rgba(5, 150, 105, 0.6)', // Emerald
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 20px 0 rgba(52, 211, 153, 0.4)',
-      };
+      return '#059669'; // Emerald
     case 'Repository':
-      return {
-        ...baseStyle,
-        background: 'rgba(234, 88, 12, 0.6)', // Orange
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 20px 0 rgba(251, 146, 60, 0.4)',
-      };
+      return '#ea580c'; // Orange
     case 'Concept':
     default:
-      return {
-        ...baseStyle,
-        background: 'rgba(30, 41, 59, 0.6)', // Slate/Blue
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 20px 0 rgba(99, 102, 241, 0.2)',
-      };
+      return '#6366f1'; // Indigo
   }
 };
 
-const customEdgeOptions = {
-  style: { stroke: '#818cf8', strokeWidth: 2, filter: 'drop-shadow(0 0 4px rgba(129, 140, 248, 0.8))' },
-  animated: true,
-};
-
 export default function GraphVisualizer() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [loading, setLoading] = useState(true);
   const [timeTravelDays, setTimeTravelDays] = useState(0);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fgRef = useRef<any>(null);
 
-  const onConnect = useCallback((params: Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges]);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0]) {
+        const { width, height } = entries[0].contentRect;
+        // Don't set dimensions if they are 0, it crashes ForceGraph3D
+        if (width > 0 && height > 0) {
+          setDimensions({ width, height });
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const fetchGraph = useCallback(async (daysAgo: number = 0) => {
     setLoading(true);
@@ -79,19 +54,30 @@ export default function GraphVisualizer() {
       const response = await fetch(url);
       const data = await response.json();
       
-      // Apply our premium dynamic styles to nodes based on their type
-      const styledNodes = data.nodes.map((node: any) => ({
-        ...node,
-        style: getNodeStyle(node.data?.type || 'Concept'),
+      // Transform edges to links for ForceGraph3D
+      const links = data.edges.map((edge: any) => ({
+        source: edge.source,
+        target: edge.target,
       }));
-      
-      setNodes(styledNodes);
-      setEdges(data.edges);
+
+      // Map nodes with colors and names, and strip absolute x/y coordinates 
+      // from the 2D backend so the 3D physics engine centers them at the origin.
+      const nodes = data.nodes.map((node: any) => {
+        const { x, y, ...restNode } = node; // Destructure to remove x and y
+        return {
+          ...restNode,
+          name: node.data?.label || node.id,
+          type: node.data?.type || 'Concept',
+          color: getNodeColor(node.data?.type || 'Concept'),
+        };
+      });
+
+      setGraphData({ nodes, links });
     } catch (err) {
       console.error("Failed to load graph data", err);
     }
     setLoading(false);
-  }, [setNodes, setEdges]);
+  }, []);
 
   useEffect(() => {
     fetchGraph(timeTravelDays);
@@ -102,11 +88,11 @@ export default function GraphVisualizer() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="w-full h-[600px] mt-8 relative glass-card rounded-2xl overflow-hidden border border-white/10 group"
+      className="w-full h-[600px] mt-8 relative glass-card rounded-2xl overflow-hidden border border-white/10 group bg-zinc-950"
     >
       <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-zinc-900/80 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
         <Sparkles size={14} className="text-blue-400" />
-        <span className="text-xs font-medium text-white tracking-wide uppercase">Kyro Brain</span>
+        <span className="text-xs font-medium text-white tracking-wide uppercase">Kyro Brain (3D)</span>
       </div>
       
       {/* Time Machine UI */}
@@ -139,12 +125,12 @@ export default function GraphVisualizer() {
       </motion.button>
 
       <AnimatePresence>
-        {!loading && nodes.length === 0 && (
+        {!loading && graphData.nodes.length === 0 && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-zinc-900/50 backdrop-blur-sm"
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-900/50 backdrop-blur-sm"
           >
             <div className="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 mb-6 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
               <Network size={40} />
@@ -157,35 +143,50 @@ export default function GraphVisualizer() {
         )}
       </AnimatePresence>
 
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        defaultEdgeOptions={{
-          ...customEdgeOptions,
-          animated: edges.length < 500 // Disable expensive animations if graph is large
-        }}
-        fitView
-        minZoom={0.1} // Prevent zooming out so far that 10,000 tiny nodes render at once
-        maxZoom={2}
-        nodesDraggable={nodes.length < 500} // Disable physics on huge graphs
-        nodesConnectable={nodes.length < 500}
-        elementsSelectable={nodes.length < 500}
-        className="bg-transparent"
-      >
-        <Controls 
-          className="bg-zinc-900/80 border-white/10 rounded-lg overflow-hidden backdrop-blur-md !fill-white" 
-          showInteractive={false} 
+      {!loading && graphData.nodes.length > 0 && (
+        <div className="absolute inset-0 z-0" ref={containerRef}>
+          <ForceGraph3D
+            ref={fgRef}
+            width={dimensions.width}
+            height={dimensions.height}
+            graphData={graphData}
+            backgroundColor="#09090b" // Zinc-950 to match container
+            nodeLabel="name"
+            nodeColor="color"
+            nodeRelSize={6}
+            linkWidth={1.5}
+            linkColor={() => 'rgba(129, 140, 248, 0.4)'} // Indigo-400 with opacity
+            linkOpacity={0.4}
+            linkDirectionalParticles={2}
+            linkDirectionalParticleWidth={2}
+            linkDirectionalParticleSpeed={0.005}
+          nodeThreeObject={(node: any) => {
+            const sprite = new SpriteText(node.name);
+            sprite.color = node.color;
+            sprite.textHeight = 4;
+            sprite.fontWeight = 'bold';
+            sprite.backgroundColor = 'rgba(0,0,0,0.6)';
+            sprite.padding = 2;
+            sprite.borderRadius = 4;
+            return sprite;
+          }}
+          nodeThreeObjectExtend={true} // renders both the sphere and the text
+          onNodeClick={(node: any) => {
+            // Aim at node from outside it
+            const distance = 80;
+            const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+
+            if (fgRef.current) {
+              (fgRef.current as any).cameraPosition(
+                { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
+                node, // lookAt ({ x, y, z })
+                3000  // ms transition duration
+              );
+            }
+          }}
         />
-        <Background 
-          variant={BackgroundVariant.Dots} 
-          gap={24} 
-          size={1} 
-          color="rgba(148, 163, 184, 0.15)" 
-        />
-      </ReactFlow>
+        </div>
+      )}
     </motion.div>
   );
 }

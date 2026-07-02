@@ -8,7 +8,10 @@ import GraphVisualizer from '../components/GraphVisualizer';
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('Live Feed');
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') || 'Live Feed';
+  });
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {

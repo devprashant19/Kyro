@@ -9,6 +9,14 @@ function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
   const [recentCaptures, setRecentCaptures] = useState<any[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   // Clerk Auth State
   const { isLoaded, isSignedIn, signOut } = useAuth();
@@ -72,6 +80,12 @@ function App() {
       {/* Decorative ambient light */}
       <div className="absolute top-0 left-1/4 w-64 h-64 bg-blue-600/20 rounded-full blur-[80px] pointer-events-none"></div>
       <div className="absolute bottom-0 right-0 w-48 h-48 bg-purple-600/20 rounded-full blur-[60px] pointer-events-none"></div>
+
+      {toastMessage && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 border border-white/10 text-white text-xs px-4 py-2 rounded-full shadow-xl shadow-black/50 animate-fade-in whitespace-nowrap">
+          {toastMessage}
+        </div>
+      )}
 
       {/* Header */}
       <header className="glass-panel px-5 py-4 flex items-center justify-between z-10 sticky top-0 border-b-0 border-white/10 rounded-b-2xl shadow-lg">
@@ -149,8 +163,8 @@ function App() {
           </div>
 
           <div className="space-y-2">
-            {recentCaptures.slice(0, 3).map((item, i) => (
-              <div key={i} className="group/item glass-card rounded-lg p-3 flex items-start gap-3 cursor-pointer">
+            {recentCaptures.slice(0, 5).map((item, i) => (
+              <div key={i} onClick={() => window.open(item.url || '#', '_blank')} className="group/item glass-card rounded-lg p-3 flex items-start gap-3 cursor-pointer hover:bg-white/5 transition-colors">
                 <div className="mt-0.5 bg-zinc-800/50 p-1.5 rounded-md border border-white/5">
                   <ShieldCheck size={14} className="text-emerald-400" />
                 </div>
@@ -240,16 +254,20 @@ function App() {
       {/* Footer */}
       <footer className="glass-panel px-4 py-3 z-10 flex justify-between items-center border-t border-white/10 mt-auto rounded-t-xl">
         <div className="flex gap-2">
-          <button className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors" title="Settings">
+          <button 
+            onClick={() => window.open('http://localhost:5173/app/dashboard?tab=Settings', '_blank')}
+            className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors cursor-pointer" 
+            title="Settings"
+          >
             <Settings size={16} />
           </button>
           <button 
             onClick={() => {
               chrome.alarms.get("kyro-graph-prune", (alarm) => {
                 if (alarm) {
-                  alert(`Pruning Alarm active! Next trigger: ${new Date(alarm.scheduledTime).toLocaleString()}`);
+                  setToastMessage(`Pruning Alarm active! Next trigger: ${new Date(alarm.scheduledTime).toLocaleTimeString()}`);
                 } else {
-                  alert('Pruning Alarm is not registered. Please reload the extension.');
+                  setToastMessage('Pruning Alarm is not registered.');
                 }
               });
             }}
