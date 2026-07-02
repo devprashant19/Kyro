@@ -5,7 +5,7 @@
   "description": "Kyro Personal Context Operating System",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:dashboard\" \"npm run dev:extension\"",
-    "dev:backend": "cd backend && venv/bin/uvicorn main:app --reload",
+    "dev:backend": "cd backend && .\\\\venv\\\\Scripts\\\\python.exe main.py",
     "dev:dashboard": "cd dashboard && npm run dev",
     "dev:extension": "cd extension && npm run dev"
   },

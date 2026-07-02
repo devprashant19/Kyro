@@ -12,7 +12,8 @@ cognee.config.set_embedding_api_key(os.getenv("GEMINI_API_KEY"))
 
 import asyncio
 
-load_dotenv()
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
 
 async def setup_cognee():
     """Initialize Cognee with Gemini LLM provider"""

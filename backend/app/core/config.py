@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 
 # Get the absolute path to the Kyro/ root directory
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 ENV_PATH = os.path.join(ROOT_DIR, ".env")
 
 class Settings(BaseSettings):
