@@ -631,6 +631,19 @@ async def get_concept_clusters():
         logger.error(f"Error fetching clusters: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/analytics/stats")
+async def get_analytics_stats():
+    """
+    Returns real statistics for the user's graph captures.
+    """
+    try:
+        from app.core.database import get_capture_stats
+        stats = await get_capture_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Error fetching stats: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/export")
 async def export_data():
     """

@@ -12,7 +12,25 @@ export default function DashboardLayout() {
     const params = new URLSearchParams(window.location.search);
     return params.get('tab') || 'Live Feed';
   });
+  const [workspaceDocs, setWorkspaceDocs] = useState<{id: string, title: string, content: string}[]>(() => {
+    const saved = localStorage.getItem('kyro_workspace_docs');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'doc_project_ideas', title: 'Project Ideas', content: '' },
+      { id: 'doc_meeting_notes', title: 'Meeting Notes', content: '' }
+    ];
+  });
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  useEffect(() => {
+    localStorage.setItem('kyro_workspace_docs', JSON.stringify(workspaceDocs));
+  }, [workspaceDocs]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -27,8 +45,25 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-full w-full bg-gradient-animate text-white overflow-hidden selection:bg-indigo-500/30 relative">
-      <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onSelectTab={setActiveTab} />
+      <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onSelectTab={setActiveTab} workspaceDocs={workspaceDocs} />
       
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-6 right-6 z-[100] bg-zinc-900 border border-white/10 shadow-2xl px-4 py-3 rounded-xl flex items-center gap-3"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+              <Sparkles size={16} />
+            </div>
+            <span className="text-sm font-medium text-white">{toastMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Decorative ambient light (like extension) */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
@@ -93,12 +128,24 @@ export default function DashboardLayout() {
           <div>
             <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-500 px-2 mb-1.5 uppercase tracking-wider">
               <span>Personal Workspace</span>
-              <button className="hover:text-white hover:bg-white/10 p-1 rounded transition-colors"><Plus size={14} /></button>
+              <button onClick={() => {
+                const newDoc = { id: `doc_${Date.now()}`, title: 'Untitled', content: '' };
+                setWorkspaceDocs([...workspaceDocs, newDoc]);
+                setActiveTab(newDoc.id);
+                if(window.innerWidth < 768) setSidebarOpen(false);
+              }} className="hover:text-white hover:bg-white/10 p-1 rounded transition-colors"><Plus size={14} /></button>
             </div>
             <div className="space-y-0.5">
               <SidebarItem icon={<FileText size={16} />} label="Getting Started" active={activeTab === 'Getting Started'} onClick={() => { setActiveTab('Getting Started'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
-              <SidebarItem icon={<Hash size={16} />} label="Project Ideas" active={activeTab === 'Project Ideas'} onClick={() => { setActiveTab('Project Ideas'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
-              <SidebarItem icon={<FileText size={16} />} label="Meeting Notes" active={activeTab === 'Meeting Notes'} onClick={() => { setActiveTab('Meeting Notes'); if(window.innerWidth < 768) setSidebarOpen(false); }} />
+              {workspaceDocs.map(doc => (
+                <SidebarItem 
+                  key={doc.id} 
+                  icon={<Hash size={16} />} 
+                  label={doc.title || 'Untitled'} 
+                  active={activeTab === doc.id} 
+                  onClick={() => { setActiveTab(doc.id); if(window.innerWidth < 768) setSidebarOpen(false); }} 
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -120,16 +167,18 @@ export default function DashboardLayout() {
               </button>
             )}
             <span className="hover:text-white cursor-pointer transition-colors font-medium hidden sm:inline">
-              {['Getting Started', 'Project Ideas', 'Meeting Notes'].includes(activeTab) ? 'Personal Workspace' : 'Overview'}
+              {(activeTab === 'Getting Started' || workspaceDocs.some(d => d.id === activeTab)) ? 'Personal Workspace' : 'Overview'}
             </span>
             <ChevronRight size={14} className="text-zinc-600 hidden sm:inline" />
-            <span className="text-zinc-200 font-medium">{activeTab}</span>
+            <span className="text-zinc-200 font-medium">
+              {workspaceDocs.find(d => d.id === activeTab)?.title || activeTab}
+            </span>
           </div>
           <div className="flex items-center gap-2">
-             <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Link copied to clipboard!'); }} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors">
+             <button onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied to clipboard!'); }} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md transition-colors">
                <Share2 size={14} /> <span className="hidden sm:inline">Share</span>
              </button>
-             <button onClick={() => alert('More options coming soon!')} className="p-1.5 hover:bg-white/10 rounded-md text-zinc-400 transition-colors">
+             <button onClick={() => showToast('More options coming soon!')} className="p-1.5 hover:bg-white/10 rounded-md text-zinc-400 transition-colors">
                <MoreHorizontal size={18} />
              </button>
           </div>
@@ -137,10 +186,23 @@ export default function DashboardLayout() {
 
         <main className="flex-1 overflow-y-auto w-full relative">
           <div className="max-w-4xl mx-auto py-8 md:py-16 px-4 sm:px-6 md:px-10">
-            <h1 className="text-[40px] font-bold text-white mb-8 outline-none placeholder-zinc-700 tracking-tight" contentEditable suppressContentEditableWarning data-placeholder="Untitled Page">
-              {activeTab}
-            </h1>
+            {workspaceDocs.find(d => d.id === activeTab) ? (
+              <WorkspaceDocument 
+                doc={workspaceDocs.find(d => d.id === activeTab)!} 
+                updateDoc={(id, updates) => {
+                  setWorkspaceDocs(docs => docs.map(d => d.id === id ? { ...d, ...updates } : d));
+                }} 
+              />
+            ) : (
+              <h1 className="text-[40px] font-bold text-white mb-8 tracking-tight">
+                {activeTab}
+              </h1>
+            )}
             
+            {activeTab === 'Favorites' && (
+              <FavoritesComponent />
+            )}
+
             {activeTab === 'Live Feed' && (
               <LiveFeed />
             )}
@@ -179,6 +241,26 @@ export default function DashboardLayout() {
           </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+function WorkspaceDocument({ doc, updateDoc }: { doc: {id: string, title: string, content: string}, updateDoc: (id: string, updates: any) => void }) {
+  return (
+    <div className="w-full relative z-10 animate-fade-in flex flex-col h-full min-h-[60vh]">
+      <input 
+        type="text" 
+        value={doc.title} 
+        onChange={e => updateDoc(doc.id, { title: e.target.value })}
+        className="w-full text-[40px] font-bold text-white mb-6 outline-none bg-transparent placeholder-zinc-700 tracking-tight"
+        placeholder="Untitled Page"
+      />
+      <textarea 
+        value={doc.content}
+        onChange={e => updateDoc(doc.id, { content: e.target.value })}
+        className="w-full flex-1 bg-transparent text-zinc-300 text-lg leading-relaxed outline-none resize-none placeholder-zinc-600"
+        placeholder="Start typing your thoughts here... Kyro is listening."
+      />
     </div>
   );
 }
@@ -318,6 +400,19 @@ function SidebarItem({ icon, label, active = false, onClick = () => {} }: { icon
 function LiveFeed() {
   const [captures, setCaptures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<any[]>(() => {
+    const saved = localStorage.getItem('kyro_favorites');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const toggleFavorite = (cap: any) => {
+    setFavorites(prev => {
+      const isFav = prev.find(f => f.timestamp === cap.timestamp);
+      const updated = isFav ? prev.filter(f => f.timestamp !== cap.timestamp) : [cap, ...prev];
+      localStorage.setItem('kyro_favorites', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const fetchCaptures = async () => {
     try {
@@ -370,7 +465,15 @@ function LiveFeed() {
                 <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
               {cap.title}
             </h3>
-            <span className="text-xs text-zinc-500">{new Date(cap.timestamp).toLocaleTimeString()}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500">{new Date(cap.timestamp).toLocaleTimeString()}</span>
+              <button 
+                onClick={() => toggleFavorite(cap)} 
+                className={`transition-colors ${favorites.find(f => f.timestamp === cap.timestamp) ? 'text-yellow-400' : 'text-zinc-500 hover:text-yellow-400'}`}
+              >
+                <Star size={14} className={favorites.find(f => f.timestamp === cap.timestamp) ? 'fill-current' : ''} />
+              </button>
+            </div>
           </div>
           <p className="text-sm text-zinc-400 mb-3">{cap.text}</p>
           <div className="flex justify-between items-center">
@@ -382,7 +485,73 @@ function LiveFeed() {
       </AnimatePresence>
     </div>
   );
-}function SettingsPanel() {
+}
+
+function FavoritesComponent() {
+  const [favorites, setFavorites] = useState<any[]>(() => {
+    const saved = localStorage.getItem('kyro_favorites');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const removeFavorite = (timestamp: string) => {
+    const updated = favorites.filter(f => f.timestamp !== timestamp);
+    setFavorites(updated);
+    localStorage.setItem('kyro_favorites', JSON.stringify(updated));
+  };
+
+  if (favorites.length === 0) return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center justify-center p-12 mt-8 text-center glass-card rounded-2xl border border-white/5"
+    >
+      <div className="w-16 h-16 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-400 mb-6 shadow-[0_0_30px_rgba(234,179,8,0.2)]">
+        <Star size={32} />
+      </div>
+      <h3 className="text-xl font-bold text-white mb-2">No Favorites Yet</h3>
+      <p className="text-zinc-400 max-w-md mx-auto text-sm leading-relaxed">
+        Star your most important context captures in the Live Feed to save them here for quick access.
+      </p>
+    </motion.div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <AnimatePresence>
+        {favorites.map((cap, i) => (
+          <motion.div 
+            key={cap.timestamp || i}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.4, type: 'spring', bounce: 0.3 }}
+            className="glass-card p-5 rounded-xl border border-yellow-500/30 hover:border-yellow-400/50 transition-colors"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                {cap.title}
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-500">{new Date(cap.timestamp).toLocaleTimeString()}</span>
+                <button onClick={() => removeFavorite(cap.timestamp)} className="text-yellow-400 hover:text-red-400 transition-colors" title="Remove from Favorites">
+                  <Star size={14} className="fill-current" />
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-zinc-400 mb-3">{cap.text}</p>
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-mono bg-white/5 px-2 py-1 rounded text-zinc-500">{cap.domain}</span>
+              <a href={cap.url} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300">View Source</a>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function SettingsPanel() {
   const [apiKey, setApiKey] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -440,7 +609,7 @@ function LiveFeed() {
   );
 }
 
-function CommandPalette({ isOpen, onClose, onSelectTab }: { isOpen: boolean, onClose: () => void, onSelectTab: (tab: string) => void }) {
+function CommandPalette({ isOpen, onClose, onSelectTab, workspaceDocs }: { isOpen: boolean, onClose: () => void, onSelectTab: (tab: string) => void, workspaceDocs: any[] }) {
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -456,6 +625,13 @@ function CommandPalette({ isOpen, onClose, onSelectTab }: { isOpen: boolean, onC
     { id: 'brain', label: 'Go to Brain Visualizer', icon: <Network size={16} />, action: () => onSelectTab('Brain') },
     { id: 'settings', label: 'Go to Settings', icon: <Settings size={16} />, action: () => onSelectTab('Settings') },
     { id: 'upload', label: 'Upload Knowledge', icon: <DownloadCloud size={16} />, action: () => onSelectTab('Upload Knowledge') },
+    { id: 'favorites', label: 'Go to Favorites', icon: <Star size={16} />, action: () => onSelectTab('Favorites') },
+    ...workspaceDocs.map(doc => ({
+      id: doc.id,
+      label: `Open Document: ${doc.title || 'Untitled'}`,
+      icon: <FileText size={16} />,
+      action: () => onSelectTab(doc.id)
+    }))
   ];
 
   const filtered = actions.filter(a => a.label.toLowerCase().includes(search.toLowerCase()));
@@ -650,6 +826,7 @@ function GettingStarted({ setActiveTab }: { setActiveTab: (tab: string) => void 
 function InsightsPanel() {
   const [activity, setActivity] = useState<{date: string, count: number}[]>([]);
   const [clusters, setClusters] = useState<{concept: string, weight: number}[]>([]);
+  const [stats, setStats] = useState({ total: 0, streak: 0, average: 0 });
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -658,9 +835,10 @@ function InsightsPanel() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const [activityRes, clustersRes] = await Promise.all([
+        const [activityRes, clustersRes, statsRes] = await Promise.all([
           fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/analytics/activity`),
-          fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/analytics/clusters`)
+          fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/analytics/clusters`),
+          fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/analytics/stats`)
         ]);
         
         if (activityRes.ok) {
@@ -670,6 +848,10 @@ function InsightsPanel() {
         if (clustersRes.ok) {
           const data = await clustersRes.json();
           setClusters(data.clusters || []);
+        }
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setStats(data);
         }
       } catch (err) {
         console.error(err);
@@ -694,7 +876,7 @@ function InsightsPanel() {
     setGeneratingReport(false);
   };
 
-  const totalCaptured = activity.reduce((acc, curr) => acc + curr.count * 12, 452); // mockup multiplier
+  const totalCaptured = stats.total;
   
   const getColor = (count: number) => {
     if (count === 0) return 'bg-zinc-800/50';
@@ -747,7 +929,7 @@ function InsightsPanel() {
           </div>
           <div>
             <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wider mb-1">Current Streak</p>
-            <p className="text-2xl font-bold text-white">12 Days</p>
+            <p className="text-2xl font-bold text-white">{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</p>
           </div>
         </div>
         <div className="glass-card p-5 rounded-2xl border border-white/5 flex items-center gap-4">
@@ -756,7 +938,7 @@ function InsightsPanel() {
           </div>
           <div>
             <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wider mb-1">Daily Average</p>
-            <p className="text-2xl font-bold text-white">34 Contexts</p>
+            <p className="text-2xl font-bold text-white">{stats.average} Contexts</p>
           </div>
         </div>
       </div>
