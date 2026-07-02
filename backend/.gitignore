@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .env
 .cognee/
+kyro_captures.db
