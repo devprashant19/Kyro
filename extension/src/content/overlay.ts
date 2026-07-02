@@ -2,6 +2,7 @@
 
 let lookupTimeout: number | null = null;
 let overlayContainer: HTMLElement | null = null;
+let selectedIndex: number = -1; // NEW for keyboard nav
 
 export function createOverlay() {
   if (overlayContainer) return overlayContainer;
@@ -22,19 +23,9 @@ export function createOverlay() {
     flex-direction: column;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    opacity: 0;
+    transition: opacity 0.3s ease;
   `;
-
-  const header = document.createElement('div');
-  header.style.cssText = `
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #a855f7;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  `;
-  header.innerText = "✨ Kyro Context Retrieved";
 
   const contentList = document.createElement('div');
   contentList.id = 'kyro-memory-list';
@@ -45,7 +36,6 @@ export function createOverlay() {
     gap: 4px;
   `;
 
-  overlayContainer.appendChild(header);
   overlayContainer.appendChild(contentList);
 
   return overlayContainer;
@@ -55,13 +45,15 @@ export function showMemories(memories: any[], textArea: HTMLElement) {
   const container = createOverlay();
   const list = container.querySelector('#kyro-memory-list') as HTMLElement;
   list.innerHTML = ''; // clear old
+  selectedIndex = -1; // reset selection
 
   if (memories.length === 0) {
-    container.style.display = 'none';
+    container.style.opacity = '0';
+    setTimeout(() => container.style.display = 'none', 300);
     return;
   }
 
-  memories.forEach(mem => {
+  memories.forEach((mem, index) => {
     let memoryText = "";
     let memoryId = "";
     
@@ -74,6 +66,8 @@ export function showMemories(memories: any[], textArea: HTMLElement) {
     }
 
     const item = document.createElement('div');
+    item.className = 'kyro-memory-item';
+    item.dataset.index = index.toString();
     item.style.cssText = `
       padding: 10px;
       background: rgba(255,255,255,0.03);
@@ -85,7 +79,8 @@ export function showMemories(memories: any[], textArea: HTMLElement) {
       cursor: pointer;
       transition: all 0.2s;
     `;
-        // Container for the memory text and buttons
+    
+    // Container for the memory text and buttons
     const contentWrapper = document.createElement('div');
     contentWrapper.style.cssText = `
       display: flex;
@@ -142,35 +137,32 @@ export function showMemories(memories: any[], textArea: HTMLElement) {
     
     item.appendChild(contentWrapper);
 
-
     // Hover effects
     item.addEventListener('mouseenter', () => {
-      item.style.background = 'rgba(168,85,247,0.1)';
-      item.style.borderColor = 'rgba(168,85,247,0.3)';
+      if (selectedIndex !== index) {
+        item.style.background = 'rgba(168,85,247,0.1)';
+        item.style.borderColor = 'rgba(168,85,247,0.3)';
+      }
     });
     item.addEventListener('mouseleave', () => {
-      item.style.background = 'rgba(255,255,255,0.03)';
-      item.style.borderColor = 'rgba(255,255,255,0.05)';
+      if (selectedIndex !== index) {
+        item.style.background = 'rgba(255,255,255,0.03)';
+        item.style.borderColor = 'rgba(255,255,255,0.05)';
+      }
     });
 
     // Manual Injection Click Handler
     item.addEventListener('click', () => {
-      const injectionText = '\\n\\n[Kyro Context: ' + memoryText + ']\\n';
-      if (textArea instanceof HTMLTextAreaElement) {
-        textArea.value = textArea.value + injectionText;
-        textArea.dispatchEvent(new Event('input', { bubbles: true })); // trigger react
-      } else {
-        textArea.innerText = textArea.innerText + injectionText;
-        textArea.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      container.style.display = 'none';
+      injectContext(memoryText, textArea);
     });
 
     list.appendChild(item);
   });
 
   // Mount overlay to body to avoid overflow issues
-  document.body.appendChild(container);
+  if (!document.body.contains(container)) {
+    document.body.appendChild(container);
+  }
   
   // Position it above the textarea
   const rect = textArea.getBoundingClientRect();
@@ -178,11 +170,32 @@ export function showMemories(memories: any[], textArea: HTMLElement) {
   container.style.left = `${rect.left}px`;
   container.style.width = `${rect.width}px`;
   container.style.display = 'flex';
+  
+  // Trigger fade in
+  requestAnimationFrame(() => {
+    container.style.opacity = '1';
+  });
+}
+
+function injectContext(memoryText: string, textArea: HTMLElement) {
+  const injectionText = '\\n\\n<context>\\n' + memoryText + '\\n</context>\\n';
+  if (textArea instanceof HTMLTextAreaElement) {
+    textArea.value = textArea.value + injectionText;
+    textArea.dispatchEvent(new Event('input', { bubbles: true })); // trigger react
+  } else {
+    textArea.innerText = textArea.innerText + injectionText;
+    textArea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  
+  if (overlayContainer) {
+    overlayContainer.style.opacity = '0';
+    setTimeout(() => overlayContainer!.style.display = 'none', 300);
+  }
 }
 
 export function setupOverlay(getTextAreaFn: () => HTMLElement | null) {
+  // Input event for fetching
   document.addEventListener('input', (e) => {
-    console.log("[Kyro] Input event fired!", e.target);
     const target = e.target as HTMLElement;
     const textArea = getTextAreaFn();
 
@@ -193,7 +206,7 @@ export function setupOverlay(getTextAreaFn: () => HTMLElement | null) {
 
       if (lookupTimeout) clearTimeout(lookupTimeout);
 
-      if (text.trim().length > 2) { // Only lookup if they typed a decent amount
+      if (text.trim().length > 10) { // Increased threshold to > 10 chars
         lookupTimeout = window.setTimeout(() => {
           chrome.runtime.sendMessage(
             { type: "RETRIEVE_CONTEXT", query: text },
@@ -203,10 +216,61 @@ export function setupOverlay(getTextAreaFn: () => HTMLElement | null) {
               }
             }
           );
-        }, 800); // 800ms debounce
+        }, 1200); // 1200ms debounce
       } else {
-        if (overlayContainer) overlayContainer.style.display = 'none';
+        if (overlayContainer) {
+          overlayContainer.style.opacity = '0';
+          setTimeout(() => { if (overlayContainer) overlayContainer.style.display = 'none'; }, 300);
+        }
       }
     }
   }, true);
+
+  // Keydown event for keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (!overlayContainer || overlayContainer.style.display === 'none') return;
+    
+    const textArea = getTextAreaFn();
+    const activeEl = document.activeElement;
+    if (!textArea || (activeEl !== textArea && !textArea.contains(activeEl))) return;
+
+    const items = Array.from(overlayContainer.querySelectorAll('.kyro-memory-item')) as HTMLElement[];
+    if (items.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex + 1) % items.length;
+      updateSelection(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+      updateSelection(items);
+    } else if (e.key === 'Tab') { // Use Tab to inject (Enter is used to send message in ChatGPT)
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < items.length) {
+        const textNode = items[selectedIndex].querySelector('div > div') as HTMLElement;
+        if (textNode) injectContext(textNode.innerText, textArea);
+      } else if (items.length > 0) {
+        // Inject first item if none selected
+        const textNode = items[0].querySelector('div > div') as HTMLElement;
+        if (textNode) injectContext(textNode.innerText, textArea);
+      }
+    } else if (e.key === 'Escape') {
+      overlayContainer.style.opacity = '0';
+      setTimeout(() => { if (overlayContainer) overlayContainer.style.display = 'none'; }, 300);
+    }
+  }, true);
+}
+
+function updateSelection(items: HTMLElement[]) {
+  items.forEach((item, index) => {
+    if (index === selectedIndex) {
+      item.style.background = 'rgba(168,85,247,0.2)';
+      item.style.borderColor = 'rgba(168,85,247,0.5)';
+      item.scrollIntoView({ block: 'nearest' });
+    } else {
+      item.style.background = 'rgba(255,255,255,0.03)';
+      item.style.borderColor = 'rgba(255,255,255,0.05)';
+    }
+  });
 }
