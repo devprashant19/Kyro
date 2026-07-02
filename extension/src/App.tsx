@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Upload, Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw } from 'lucide-react';
+import { Trash2, Upload, Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw, Keyboard } from 'lucide-react';
 import { useAuth } from '@clerk/chrome-extension';
 import { Onboarding } from './components/Onboarding';
 import { Auth } from './components/Auth';
@@ -10,6 +10,41 @@ function App() {
   const [backendConnected, setBackendConnected] = useState(false);
   const [recentCaptures, setRecentCaptures] = useState<any[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [captureKeybind, setCaptureKeybind] = useState<string>('Alt + C');
+  const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
+
+  useEffect(() => {
+    chrome.storage.local.get(['kyro_capture_keybind'], (result) => {
+      if (result.kyro_capture_keybind) {
+        setCaptureKeybind(result.kyro_capture_keybind);
+      }
+    });
+  }, []);
+
+  const handleKeybindRecord = (e: React.KeyboardEvent) => {
+    e.preventDefault();
+    if (e.key === 'Escape') {
+      setIsRecordingKeybind(false);
+      return;
+    }
+    
+    // Ignore pure modifier presses
+    if (['Alt', 'Control', 'Shift', 'Meta'].includes(e.key)) return;
+
+    const parts = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.metaKey) parts.push('Cmd');
+    
+    parts.push(e.key.toUpperCase());
+    const newBind = parts.join(' + ');
+    
+    setCaptureKeybind(newBind);
+    chrome.storage.local.set({ kyro_capture_keybind: newBind });
+    setIsRecordingKeybind(false);
+    setToastMessage(`Hotkey saved: ${newBind}`);
+  };
 
   useEffect(() => {
     if (toastMessage) {
@@ -153,6 +188,33 @@ function App() {
           </div>
         </div>
 
+        {/* Hotkey Config Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Keyboard size={14} /> Capture Hotkey
+            </h2>
+          </div>
+          <div className="glass-card rounded-lg p-3 border border-white/5 flex items-center justify-between group relative overflow-hidden">
+             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+             <div>
+                <p className="text-sm font-medium text-white relative z-10">Manual Capture</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5 relative z-10">Highlight text & press this to save</p>
+             </div>
+             <button
+               onClick={() => setIsRecordingKeybind(true)}
+               onKeyDown={isRecordingKeybind ? handleKeybindRecord : undefined}
+               className={`relative z-10 px-3 py-1.5 rounded bg-black/40 border text-xs font-mono transition-all outline-none ${
+                 isRecordingKeybind 
+                   ? 'border-purple-500 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)] animate-pulse' 
+                   : 'border-white/10 text-zinc-300 hover:border-white/20'
+               }`}
+             >
+               {isRecordingKeybind ? 'Listening...' : captureKeybind}
+             </button>
+          </div>
+        </div>
+
         {/* Captures Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
@@ -255,7 +317,7 @@ function App() {
       <footer className="glass-panel px-4 py-3 z-10 flex justify-between items-center border-t border-white/10 mt-auto rounded-t-xl">
         <div className="flex gap-2">
           <button 
-            onClick={() => window.open('http://localhost:5173/app/dashboard?tab=Settings', '_blank')}
+            onClick={() => window.open(`${import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5173'}/app/dashboard?tab=Settings`, '_blank')}
             className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors cursor-pointer" 
             title="Settings"
           >
@@ -279,7 +341,7 @@ function App() {
         </div>
 
         <a
-          href="http://localhost:5173"
+          href={import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5173'}
           target="_blank"
           rel="noreferrer"
           className="flex items-center gap-2 px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-medium text-white transition-all group"

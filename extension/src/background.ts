@@ -178,7 +178,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender: chrome.runtime.Mess
   }
 
   if (message.type === "SEND_FEEDBACK") {
-    fetch("http://localhost:8000/api/feedback", {
+    fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/feedback`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
