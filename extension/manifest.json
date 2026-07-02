@@ -39,10 +39,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://medium.com/*",
-        "https://dev.to/*",
-        "https://www.youtube.com/*",
-        "https://*.wikipedia.org/*"
+        "<all_urls>"
       ],
       "js": [
         "src/content/index.ts"

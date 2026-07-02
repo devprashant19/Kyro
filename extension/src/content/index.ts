@@ -77,20 +77,46 @@ document.addEventListener('keydown', recordInteraction, { passive: true });
 
 // Start the engagement loop
 setTimeout(checkEngagement, 1000);
-// Listen for text selection
-document.addEventListener('selectionchange', () => {
-  const selection = window.getSelection()?.toString();
-  if (selection && selection.length > 50) {
-    chrome.runtime.sendMessage({
-      type: "CAPTURE_CONTEXT",
-      data: {
-        text: selection,
-        url: window.location.href,
-        title: `Selection from: ${document.title}`,
-        timestamp: new Date().toISOString(),
-        type: "selection",
-        domain: window.location.hostname
+// Listen for text selection via custom keybind
+document.addEventListener('keydown', (e) => {
+  chrome.storage.local.get(['kyro_capture_keybind'], (result) => {
+    const hotkey = result.kyro_capture_keybind || 'Alt+C';
+    
+    const parts = hotkey.split('+').map((p: string) => p.trim().toLowerCase());
+    const needsAlt = parts.includes('alt');
+    const needsCtrl = parts.includes('ctrl');
+    const needsShift = parts.includes('shift');
+    const needsMeta = parts.includes('meta');
+    const key = parts.find((p: string) => !['alt', 'ctrl', 'shift', 'meta'].includes(p));
+    
+    if (
+      e.altKey === needsAlt &&
+      e.ctrlKey === needsCtrl &&
+      e.shiftKey === needsShift &&
+      e.metaKey === needsMeta &&
+      key && e.key.toLowerCase() === key
+    ) {
+      const selection = window.getSelection()?.toString();
+      if (selection && selection.length > 0) {
+        chrome.runtime.sendMessage({
+          type: "CAPTURE_CONTEXT",
+          data: {
+            text: selection,
+            url: window.location.href,
+            title: `Selection from: ${document.title}`,
+            timestamp: new Date().toISOString(),
+            type: "selection",
+            domain: window.location.hostname
+          }
+        });
+        
+        // Visual feedback
+        const el = document.createElement('div');
+        el.innerText = '✨ Captured to Kyro!';
+        el.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#a855f7;color:white;padding:8px 16px;border-radius:8px;z-index:999999;font-family:sans-serif;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition: opacity 0.3s;';
+        document.body.appendChild(el);
+        setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 1500);
       }
-    });
-  }
+    }
+  });
 });

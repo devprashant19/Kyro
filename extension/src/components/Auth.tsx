@@ -7,7 +7,7 @@ interface AuthProps {
 
 export function Auth({ onComplete }: AuthProps) {
   const openSignUp = () => {
-    window.open('http://localhost:5173/sign-up', '_blank');
+    window.open(`${import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5173'}/sign-up`, '_blank');
   };
 
   return (
