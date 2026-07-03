@@ -13,8 +13,15 @@ export default function DashboardLayout() {
     return params.get('tab') || 'Live Feed';
   });
   const [workspaceDocs, setWorkspaceDocs] = useState<{id: string, title: string, content: string}[]>(() => {
-    const saved = localStorage.getItem('kyro_workspace_docs');
-    if (saved) return JSON.parse(saved);
+    try {
+      const saved = localStorage.getItem('kyro_workspace_docs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error("Failed to parse workspace docs from localStorage", e);
+    }
     return [
       { id: 'doc_project_ideas', title: 'Project Ideas', content: '' },
       { id: 'doc_meeting_notes', title: 'Meeting Notes', content: '' }
@@ -143,7 +150,15 @@ export default function DashboardLayout() {
                   icon={<Hash size={16} />} 
                   label={doc.title || 'Untitled'} 
                   active={activeTab === doc.id} 
-                  onClick={() => { setActiveTab(doc.id); if(window.innerWidth < 768) setSidebarOpen(false); }} 
+                  onClick={() => { setActiveTab(doc.id); if(window.innerWidth < 768) setSidebarOpen(false); }}
+                  onDelete={(e) => {
+                    e.stopPropagation();
+                    const newDocs = workspaceDocs.filter(d => d.id !== doc.id);
+                    setWorkspaceDocs(newDocs);
+                    if (activeTab === doc.id) {
+                      setActiveTab(newDocs.length > 0 ? newDocs[0].id : 'Getting Started');
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -379,21 +394,32 @@ function ChatComponent() {
   );
 }
 
-function SidebarItem({ icon, label, active = false, onClick = () => {} }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void }) {
+function SidebarItem({ icon, label, active = false, onClick = () => {}, onDelete }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void, onDelete?: (e: React.MouseEvent) => void }) {
   return (
-    <motion.button 
-      whileHover={{ scale: 1.02, x: 4 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-[13px] font-medium border border-transparent ${
-        active 
-          ? 'bg-white/10 text-white border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' 
-          : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
-      }`}
-    >
-      <span className={`${active ? 'text-blue-400' : 'text-zinc-500'} transition-colors`}>{icon}</span>
-      {label}
-    </motion.button>
+    <div className="group relative flex items-center w-full">
+      <motion.button 
+        whileHover={{ scale: 1.02, x: 4 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={onClick}
+        className={`flex-1 flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-[13px] font-medium border border-transparent overflow-hidden ${
+          active 
+            ? 'bg-white/10 text-white border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' 
+            : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+        }`}
+      >
+        <span className={`${active ? 'text-blue-400' : 'text-zinc-500'} transition-colors shrink-0`}>{icon}</span>
+        <span className="truncate">{label}</span>
+      </motion.button>
+      {onDelete && (
+        <button
+          onClick={onDelete}
+          className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-all z-10"
+          title="Delete page"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+        </button>
+      )}
+    </div>
   );
 }
 

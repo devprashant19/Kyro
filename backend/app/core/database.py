@@ -214,3 +214,40 @@ async def get_capture_stats() -> dict:
     except Exception as e:
         logger.error(f"DB get_capture_stats failed: {e}")
         return {"total": 0, "average": 0, "streak": 0}
+
+async def get_daily_activity(days: int = 90) -> dict:
+    """Returns a dictionary mapping date strings to capture counts for the last `days` days."""
+    if not _async_session:
+        return {}
+    try:
+        async with _async_session() as session:
+            result = await session.execute(text(f"""
+                SELECT DATE(captured_at) as date, COUNT(*) as count
+                FROM kyro_captures
+                WHERE captured_at >= date('now', '-{days} days')
+                GROUP BY DATE(captured_at)
+            """))
+            rows = result.mappings().all()
+            return {row["date"]: row["count"] for row in rows}
+    except Exception as e:
+        logger.error(f"DB get_daily_activity failed: {e}")
+        return {}
+
+async def get_domain_clusters(limit: int = 8) -> list:
+    """Returns trending domain clusters based on frequency."""
+    if not _async_session:
+        return []
+    try:
+        async with _async_session() as session:
+            result = await session.execute(text(f"""
+                SELECT domain, COUNT(*) as count
+                FROM kyro_captures
+                WHERE domain IS NOT NULL AND domain != ''
+                GROUP BY domain
+                ORDER BY count DESC
+                LIMIT {limit}
+            """))
+            return result.mappings().all()
+    except Exception as e:
+        logger.error(f"DB get_domain_clusters failed: {e}")
+        return []

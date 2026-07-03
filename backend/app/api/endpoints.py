@@ -641,38 +641,37 @@ async def ingest_custom_data(request: CustomIngestionRequest):
 @router.get("/analytics/activity")
 async def get_activity_heatmap():
     """
-    Returns activity data for the last 90 days.
-    For hackathon purposes, this dynamically generates a seeded heatmap
-    and merges it with live recent_captures data for today.
+    Returns activity data for the last 90 days from the database.
     """
     import datetime
-    
     try:
+        from app.core.database import get_daily_activity
+        db_activity = await get_daily_activity(90)
+        
         activity = []
         today = datetime.date.today()
         
-        # Generate 90 days of empty data, fill today with actual
         for i in range(89, -1, -1):
-            date = today - datetime.timedelta(days=i)
-            weight = 0
+            date_obj = today - datetime.timedelta(days=i)
+            date_str = date_obj.isoformat()
             
-            # If it's today, base it on actual recent captures
-            if i == 0:
-                global recent_captures
-                capture_count = len(recent_captures)
-                if capture_count == 0:
-                    weight = 0
-                elif capture_count < 3:
-                    weight = 1
-                elif capture_count < 10:
-                    weight = 2
-                elif capture_count < 20:
-                    weight = 3
-                else:
-                    weight = 4
-                    
+            # Fetch count from real DB query
+            capture_count = db_activity.get(date_str, 0)
+            
+            weight = 0
+            if capture_count == 0:
+                weight = 0
+            elif capture_count < 3:
+                weight = 1
+            elif capture_count < 10:
+                weight = 2
+            elif capture_count < 20:
+                weight = 3
+            else:
+                weight = 4
+                
             activity.append({
-                "date": date.isoformat(),
+                "date": date_str,
                 "count": weight
             })
             
@@ -684,32 +683,20 @@ async def get_activity_heatmap():
 @router.get("/analytics/clusters")
 async def get_concept_clusters():
     """
-    Returns trending concept clusters.
-    For hackathon MVP, returns seed data.
+    Returns trending concept clusters from the database.
     """
     try:
-        global recent_captures
+        from app.core.database import get_domain_clusters
+        db_clusters = await get_domain_clusters(8)
         
-        # Calculate real domain clusters from recent captures
-        domain_counts = {}
-        for cap in recent_captures:
-            domain = cap.get("domain", "unknown")
-            if domain:
-                domain_counts[domain] = domain_counts.get(domain, 0) + 1
-                
         clusters = []
-        if domain_counts:
-            # Sort by frequency
-            sorted_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)
-            max_count = sorted_domains[0][1]
+        if db_clusters:
+            max_count = max([c["count"] for c in db_clusters]) if db_clusters else 1
             
-            for domain, count in sorted_domains[:8]:
+            for c in db_clusters:
                 # Normalize weight between 20 and 95 for UI sizing
-                weight = int((count / max_count) * 75) + 20
-                clusters.append({"concept": domain, "weight": weight})
-        else:
-            # Empty state
-            clusters = []
+                weight = int((c["count"] / max_count) * 75) + 20
+                clusters.append({"concept": c["domain"], "weight": weight})
             
         return {"clusters": clusters}
     except Exception as e:
