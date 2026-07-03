@@ -12,6 +12,43 @@ export default function DashboardLayout() {
     const params = new URLSearchParams(window.location.search);
     return params.get('tab') || 'Live Feed';
   });
+  
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('kyro_sidebar_width');
+    return saved ? parseInt(saved, 10) : 260;
+  });
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingSidebar) return;
+      const newWidth = Math.max(200, Math.min(600, e.clientX));
+      setSidebarWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      if (isDraggingSidebar) {
+        setIsDraggingSidebar(false);
+        localStorage.setItem('kyro_sidebar_width', sidebarWidth.toString());
+      }
+    };
+    
+    if (isDraggingSidebar) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+    } else {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isDraggingSidebar, sidebarWidth]);
   const [workspaceDocs, setWorkspaceDocs] = useState<{id: string, title: string, content: string}[]>(() => {
     try {
       const saved = localStorage.getItem('kyro_workspace_docs');
@@ -90,10 +127,20 @@ export default function DashboardLayout() {
 
       {/* Sidebar */}
       <div 
+        style={{ width: sidebarOpen ? (window.innerWidth < 768 ? 260 : sidebarWidth) : 0 }}
         className={`fixed md:relative ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0'
-        } w-[260px] h-full transition-all duration-300 ease-in-out glass-sidebar flex flex-col z-40 overflow-hidden`}
+        } h-full ${isDraggingSidebar ? '' : 'transition-all duration-300'} ease-in-out glass-sidebar flex flex-col z-40 overflow-hidden shrink-0`}
       >
+        {/* Resizer Handle */}
+        <div 
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsDraggingSidebar(true);
+          }}
+          className="hidden md:block absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-500/50 z-50 transition-colors"
+          style={{ backgroundColor: isDraggingSidebar ? 'rgba(59, 130, 246, 0.5)' : 'transparent' }}
+        />
         <div className="p-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5 font-bold text-white text-lg tracking-tight group cursor-pointer">
             <div className="relative">
