@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   Menu, Search, FileText, Star, Settings, 
-  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network, Clock, Inbox, BarChart2, TrendingUp, DownloadCloud, GitCommit, Bot, Mail
+  Plus, MoreHorizontal, MessageSquare, ChevronRight, Hash, Sparkles, Share2, PanelLeftClose, User, Network, Clock, Inbox, BarChart2, TrendingUp, DownloadCloud, GitCommit, Bot, Mail, Activity, Zap, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GraphVisualizer from '../components/GraphVisualizer';
@@ -327,115 +327,258 @@ function WorkspaceDocument({ doc, updateDoc }: { doc: {id: string, title: string
   );
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: { role: string; content: string }[];
+  updatedAt: number;
+}
+
 function ChatComponent() {
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [relatedMemories, setRelatedMemories] = useState<{id: string, label: string}[]>([]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
+  useEffect(() => {
+    const stored = localStorage.getItem('kyro_chat_sessions');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setSessions(parsed);
+      if (parsed.length > 0) {
+        setActiveSessionId(parsed[0].id);
+        setMessages(parsed[0].messages);
+      }
+    }
+  }, []);
+
+  const saveSessions = (updatedSessions: ChatSession[]) => {
+    setSessions(updatedSessions);
+    localStorage.setItem('kyro_chat_sessions', JSON.stringify(updatedSessions));
+  };
+
+  const createNewSession = () => {
+    setActiveSessionId(null);
+    setMessages([]);
+    setRelatedMemories([]);
+  };
+
+  const deleteSession = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const updated = sessions.filter(s => s.id !== id);
+    saveSessions(updated);
+    if (activeSessionId === id) {
+      createNewSession();
+    }
+  };
+
+  const handleSend = async (overridePrompt?: string) => {
+    const textToSend = overridePrompt || input;
+    if (!textToSend.trim()) return;
+    
+    const userMsg = { role: 'user', content: textToSend };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    if (!overridePrompt) setInput('');
     setLoading(true);
+    setRelatedMemories([]);
+
+    let currentSessionId = activeSessionId;
+    if (!currentSessionId) {
+      currentSessionId = Date.now().toString();
+      setActiveSessionId(currentSessionId);
+      const newSession: ChatSession = {
+        id: currentSessionId,
+        title: textToSend.length > 30 ? textToSend.substring(0, 30) + '...' : textToSend,
+        messages: newMessages,
+        updatedAt: Date.now()
+      };
+      saveSessions([newSession, ...sessions]);
+    } else {
+      const updatedSessions = sessions.map(s => 
+        s.id === currentSessionId ? { ...s, messages: newMessages, updatedAt: Date.now() } : s
+      ).sort((a, b) => b.updatedAt - a.updatedAt);
+      saveSessions(updatedSessions);
+    }
 
     try {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMsg] })
+        body: JSON.stringify({ messages: newMessages })
       });
+      
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+      
+      if (!response.ok) {
+        throw new Error(data.detail || "Error connecting to Kyro brain.");
+      }
+      
+      const assistantMsg = { role: 'assistant', content: data.answer || "No answer provided." };
+      const updatedMessages = [...newMessages, assistantMsg];
+      setMessages(updatedMessages);
+      
       if (data.related_memories) setRelatedMemories(data.related_memories);
+
+      setSessions(prev => {
+        const updated = prev.map(s => 
+          s.id === currentSessionId ? { ...s, messages: updatedMessages, updatedAt: Date.now() } : s
+        );
+        localStorage.setItem('kyro_chat_sessions', JSON.stringify(updated));
+        return updated;
+      });
+
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Error connecting to Kyro brain." }]);
+      const errorMsg = { role: 'assistant', content: "Error connecting to Kyro brain." };
+      setMessages([...newMessages, errorMsg]);
     }
     setLoading(false);
   };
 
   return (
-    <div className="mt-16 glass-card rounded-2xl p-6 relative overflow-hidden group flex flex-col">
-      <div className="absolute top-0 right-0 p-4 opacity-10">
-        <Sparkles size={120} className="text-blue-400" />
-      </div>
-      
-      <div className="flex-1 space-y-6 overflow-y-auto mb-6 relative z-10 min-h-[300px]">
-        {messages.length === 0 && (
-          <div className="flex gap-4">
-            <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-30"></div>
-              <div className="relative w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center text-white flex-shrink-0 shadow-md">
-                <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400">K</span>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-white font-semibold mb-1">Kyro AI</p>
-              <p className="text-[15px] text-zinc-400 leading-relaxed">Hello! I have access to your personal context operating system. What would you like to recall today?</p>
-            </div>
-          </div>
-        )}
-        
-        <AnimatePresence>
-        {messages.map((msg, i) => (
-          <motion.div 
-            key={i} 
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-          >
-            <div className="relative flex-shrink-0">
-              {msg.role === 'assistant' && <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-30"></div>}
-              <div className={`relative w-10 h-10 rounded-xl ${msg.role === 'user' ? 'bg-gradient-to-tr from-blue-500 to-purple-500' : 'bg-zinc-900 border border-white/10'} flex items-center justify-center text-white shadow-md`}>
-                {msg.role === 'user' ? <User size={20} /> : <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400">K</span>}
-              </div>
-            </div>
-            <div className={`flex flex-col w-[85%] md:w-auto ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <p className="text-xs md:text-sm text-white font-semibold mb-1">{msg.role === 'user' ? 'You' : 'Kyro AI'}</p>
-              <div className={`px-4 py-3 rounded-2xl md:max-w-lg text-[14px] md:text-[15px] ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-zinc-800/80 text-zinc-300'}`}>
-                {msg.content}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-        </AnimatePresence>
-        {loading && <div className="text-zinc-500 text-sm italic pl-14">Kyro is thinking...</div>}
-        
-        {relatedMemories.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
-          <div className="pl-14 mt-4">
-            <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Sources</p>
-            <div className="flex flex-wrap gap-2">
-              {relatedMemories.map(mem => (
-                <span key={mem.id} className="text-xs px-2 py-1 bg-white/5 border border-white/10 rounded-md text-zinc-400">
-                  {mem.label}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      
-      <div className="relative mt-auto z-10 pt-4 border-t border-white/5">
-        <input 
-          type="text" 
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSend()}
-          placeholder="Ask Kyro anything..." 
-          onFocus={() => setIsTyping(true)}
-          onBlur={() => setIsTyping(false)}
-          className={`w-full bg-zinc-900/50 border ${isTyping ? 'border-blue-500/50 ring-4 ring-blue-500/10' : 'border-white/10'} rounded-xl pl-4 pr-12 py-3 text-[15px] text-white focus:outline-none transition-all shadow-inner backdrop-blur-md placeholder:text-zinc-600`} 
-        />
+    <div className="mt-8 flex flex-col md:flex-row gap-6 h-[calc(100vh-180px)] md:h-[80vh]">
+      {/* Sidebar for History */}
+      <div className="w-full md:w-64 flex flex-col gap-4 shrink-0 h-48 md:h-full">
         <button 
-          onClick={handleSend}
-          disabled={loading}
-          className={`absolute right-3 top-7 p-1.5 rounded-lg transition-all ${isTyping ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/20' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
-          <Sparkles size={18} className={loading ? "animate-spin" : ""} />
+          onClick={createNewSession}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-medium transition-all shadow-lg"
+        >
+          <Plus size={18} /> New Chat
         </button>
+        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+          {sessions.map(session => (
+            <div 
+              key={session.id}
+              onClick={() => {
+                setActiveSessionId(session.id);
+                setMessages(session.messages);
+                setRelatedMemories([]);
+              }}
+              className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${activeSessionId === session.id ? 'bg-white/10 border-white/20' : 'bg-white/5 border-transparent hover:bg-white/10'}`}
+            >
+              <div className="flex items-center gap-3 overflow-hidden">
+                <MessageSquare size={16} className={activeSessionId === session.id ? 'text-blue-400' : 'text-zinc-500'} />
+                <span className="text-sm text-zinc-300 truncate">{session.title}</span>
+              </div>
+              <button 
+                onClick={(e) => deleteSession(e, session.id)}
+                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 rounded transition-all"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          {sessions.length === 0 && (
+            <p className="text-sm text-zinc-500 text-center mt-8">No past conversations.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 glass-card rounded-2xl p-6 relative overflow-hidden group flex flex-col">
+        <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+          <Sparkles size={120} className="text-blue-400" />
+        </div>
+        
+        <div className="flex-1 space-y-6 overflow-y-auto mb-6 relative z-10 custom-scrollbar pr-4">
+          {messages.length === 0 && (
+            <div className="h-full flex flex-col justify-center items-center text-center mt-12 animate-fade-in">
+              <div className="relative mb-6">
+                <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full blur-xl opacity-20 animate-pulse"></div>
+                <div className="relative w-20 h-20 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-white shadow-2xl">
+                  <Sparkles size={32} className="text-blue-400" />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Welcome to Kyro AI</h3>
+              <p className="text-zinc-400 max-w-md mx-auto mb-10 leading-relaxed">
+                I have access to your personal context operating system. Ask me anything about your captured knowledge.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl text-left">
+                {[
+                  { title: "Summarize Activity", desc: "What have I been researching today?", icon: <Activity size={18} className="text-green-400" /> },
+                  { title: "Draft an Email", desc: "Use my recent context to draft an update.", icon: <Mail size={18} className="text-blue-400" /> },
+                  { title: "Connect the Dots", desc: "Find relationships in my saved articles.", icon: <Share2 size={18} className="text-purple-400" /> },
+                  { title: "Key Insights", desc: "Extract the most important points from my data.", icon: <Zap size={18} className="text-yellow-400" /> },
+                ].map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSend(suggestion.desc)}
+                    className="p-4 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all flex flex-col gap-2 group text-left relative overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2 font-medium text-zinc-200">
+                      {suggestion.icon}
+                      {suggestion.title}
+                    </div>
+                    <p className="text-sm text-zinc-500 group-hover:text-zinc-400 transition-colors">{suggestion.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <AnimatePresence>
+          {messages.map((msg, i) => (
+            <motion.div 
+              key={i} 
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+            >
+              <div className="relative flex-shrink-0">
+                {msg.role === 'assistant' && <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-30"></div>}
+                <div className={`relative w-10 h-10 rounded-xl ${msg.role === 'user' ? 'bg-gradient-to-tr from-blue-500 to-purple-500' : 'bg-zinc-900 border border-white/10'} flex items-center justify-center text-white shadow-md`}>
+                  {msg.role === 'user' ? <User size={20} /> : <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400">K</span>}
+                </div>
+              </div>
+              <div className={`flex flex-col w-[85%] md:w-auto ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <p className="text-xs md:text-sm text-white font-semibold mb-1">{msg.role === 'user' ? 'You' : 'Kyro AI'}</p>
+                <div className={`px-4 py-3 rounded-2xl md:max-w-lg text-[14px] md:text-[15px] ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-zinc-800/80 text-zinc-300'}`}>
+                  {msg.content}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+          </AnimatePresence>
+          {loading && <div className="text-zinc-500 text-sm italic pl-14">Kyro is thinking...</div>}
+          
+          {relatedMemories.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+            <div className="pl-14 mt-4">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Sources</p>
+              <div className="flex flex-wrap gap-2">
+                {relatedMemories.map(mem => (
+                  <span key={mem.id} className="text-xs px-2 py-1 bg-white/5 border border-white/10 rounded-md text-zinc-400">
+                    {mem.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="relative mt-auto z-10 pt-4 border-t border-white/5">
+          <input 
+            type="text" 
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSend()}
+            placeholder="Ask Kyro anything..." 
+            onFocus={() => setIsTyping(true)}
+            onBlur={() => setIsTyping(false)}
+            className={`w-full bg-zinc-900/50 border ${isTyping ? 'border-blue-500/50 ring-4 ring-blue-500/10' : 'border-white/10'} rounded-xl pl-4 pr-12 py-3 text-[15px] text-white focus:outline-none transition-all shadow-inner backdrop-blur-md placeholder:text-zinc-600`} 
+          />
+          <button 
+            onClick={() => handleSend()}
+            disabled={loading}
+            className={`absolute right-3 top-7 p-1.5 rounded-lg transition-all ${isTyping || input.trim() ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/20' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
+            <Sparkles size={18} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
     </div>
   );
