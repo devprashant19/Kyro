@@ -144,36 +144,19 @@ chrome.runtime.onMessage.addListener((message: any, _sender: chrome.runtime.Mess
 
   if (message.type === "RETRIEVE_CONTEXT") {
     console.log(`Kyro: Retrieving context for query: "${message.query}"`);
-    // Check cache first
-    chrome.storage.local.get(['kyro_cache_' + message.query], (result) => {
-      const cached = result['kyro_cache_' + message.query] as {timestamp: number, memories: string[]};
-      if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour TTL
-        console.log("Kyro: Returned from local cache (Zero Latency)");
-        sendResponse({ status: "success", memories: cached.memories, cached: true });
-        return;
-      }
+    
+    // Always fetch directly from backend for real-time accuracy
+    fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/retrieve?q=${encodeURIComponent(message.query)}&deviceId=${deviceId || ''}`)
+      .then(res => res.json())
+      .then(data => {
+        const memories = data.memories || [];
+        sendResponse({ status: "success", memories: memories, cached: false });
+      })
+      .catch(err => {
+        console.error("Kyro: Retrieval error:", err);
+        sendResponse({ status: "error", error: err.message, memories: [] });
+      });
       
-      // If not in cache or expired, fetch from backend
-      fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/retrieve?q=${encodeURIComponent(message.query)}&deviceId=${deviceId || ''}`)
-        .then(res => res.json())
-        .then(data => {
-          const memories = data.memories || [];
-          
-          // Save to cache
-          chrome.storage.local.set({
-            ['kyro_cache_' + message.query]: {
-              memories: memories,
-              timestamp: Date.now()
-            }
-          });
-          
-          sendResponse({ status: "success", memories: memories, cached: false });
-        })
-        .catch(err => {
-          console.error("Kyro: Retrieval error:", err);
-          sendResponse({ status: "error", error: err.message, memories: [] });
-        });
-    });
     return true; // Keep message channel open for async response
   }
 
