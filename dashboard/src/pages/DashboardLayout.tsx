@@ -627,7 +627,8 @@ function FavoritesComponent() {
 function SettingsPanel() {
   const [apiKey, setApiKey] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-
+  const [wipeStatus, setWipeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  
   const handleSave = async () => {
     setStatus('loading');
     try {
@@ -644,8 +645,46 @@ function SettingsPanel() {
     setTimeout(() => setStatus('idle'), 3000);
   };
 
+  const handleWipeData = async () => {
+    if (!confirm("Are you sure? This will permanently delete all your context graphs and captures.")) return;
+    setWipeStatus('loading');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/data/wipe`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setWipeStatus('success');
+        localStorage.removeItem('kyro_workspace_docs');
+        localStorage.removeItem('kyro_favorites');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        setWipeStatus('error');
+      }
+    } catch {
+      setWipeStatus('error');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/export`);
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateString = new Date().toISOString().replace('T', '_').split('.')[0].replace(/:/g, '-');
+      a.download = `kyro_export_${dateString}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Export failed", e);
+    }
+  };
+
   return (
-    <div className="max-w-2xl mt-8">
+    <div className="max-w-3xl mt-8 pb-20 space-y-8 animate-fade-in">
+      {/* API Configuration */}
       <div className="glass-card rounded-2xl border border-white/5 overflow-hidden">
         <div className="p-6 border-b border-white/5">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -675,6 +714,42 @@ function SettingsPanel() {
               </div>
               <p className="mt-2 text-xs text-zinc-500">Your key is stored locally in your browser and sent securely to your local backend.</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Management */}
+      <div className="glass-card rounded-2xl border border-white/5 overflow-hidden">
+        <div className="p-6 border-b border-white/5">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> 
+            Data Management
+          </h2>
+          <p className="text-zinc-400 mt-2 text-sm">Control your personal graph data and local workspace memory.</p>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
+            <div>
+              <h3 className="text-white font-medium">Export Graph Data</h3>
+              <p className="text-zinc-400 text-sm mt-1">Download all your captured contexts and metadata as a JSON file.</p>
+            </div>
+            <button onClick={handleExport} className="px-5 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
+              Download JSON
+            </button>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+            <div>
+              <h3 className="text-red-400 font-medium">Danger Zone: Wipe All Data</h3>
+              <p className="text-red-400/70 text-sm mt-1">Permanently deletes all captured context, SQLite graphs, and local workspace docs.</p>
+            </div>
+            <button 
+              onClick={handleWipeData}
+              disabled={wipeStatus === 'loading' || wipeStatus === 'success'}
+              className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-sm font-medium rounded-lg transition-colors border border-red-500/30 whitespace-nowrap"
+            >
+              {wipeStatus === 'loading' ? 'Wiping...' : wipeStatus === 'success' ? 'Wiped!' : 'Wipe Brain'}
+            </button>
           </div>
         </div>
       </div>
@@ -1134,35 +1209,6 @@ function InsightsPanel() {
         )}
       </div>
 
-      <div className="glass-card p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-bold text-white mb-1">Data Ownership</h3>
-          <p className="text-sm text-zinc-400">Kyro is local-first. Export your raw contextual captures at any time.</p>
-        </div>
-        <button 
-          onClick={async () => {
-            try {
-              const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/export`);
-              const data = await res.json();
-              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `kyro_export_${new Date().toISOString().split('T')[0]}.json`;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-            } catch (err) {
-              console.error('Failed to export data', err);
-            }
-          }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors border border-white/10 text-sm font-medium whitespace-nowrap"
-        >
-          <DownloadCloud size={16} />
-          Export Graph Data
-        </button>
-      </div>
     </div>
   );
 }

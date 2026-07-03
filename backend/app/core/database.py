@@ -251,3 +251,16 @@ async def get_domain_clusters(limit: int = 8) -> list:
     except Exception as e:
         logger.error(f"DB get_domain_clusters failed: {e}")
         return []
+
+async def wipe_database() -> bool:
+    """Wipes the kyro_captures table completely."""
+    if not _async_session:
+        return False
+    try:
+        async with _async_session() as session:
+            await session.execute(text("DELETE FROM kyro_captures"))
+            await session.commit()
+            return True
+    except Exception as e:
+        logger.error(f"DB wipe_database failed: {e}")
+        return False

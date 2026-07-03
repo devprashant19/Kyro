@@ -777,3 +777,96 @@ Here is the raw data:
     except Exception as e:
         logger.error(f"Error generating weekly report: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+from pydantic import BaseModel
+class ConfigKeyRequest(BaseModel):
+    key: str
+
+@router.post("/config/key")
+async def save_api_key(req: ConfigKeyRequest):
+    """
+    Saves the provided API key to the .env file.
+    """
+    try:
+        import os
+        
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+        
+        # Read existing .env
+        env_content = []
+        key_found = False
+        
+        if os.path.exists(env_path):
+            with open(env_path, "r") as f:
+                env_content = f.readlines()
+                
+        # Update or append GEMINI_API_KEY
+        for i, line in enumerate(env_content):
+            if line.startswith("GEMINI_API_KEY="):
+                env_content[i] = f"GEMINI_API_KEY={req.key}\n"
+                key_found = True
+                break
+                
+        if not key_found:
+            if env_content and not env_content[-1].endswith("\n"):
+                env_content.append("\n")
+            env_content.append(f"GEMINI_API_KEY={req.key}\n")
+            
+        with open(env_path, "w") as f:
+            f.writelines(env_content)
+            
+        # Update current process env
+        os.environ["GEMINI_API_KEY"] = req.key
+        
+        # Dynamically reconfigure the Gemini module so it works immediately
+        import google.generativeai as genai
+        genai.configure(api_key=req.key)
+        
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Failed to save API key: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/data/wipe")
+async def wipe_brain_memory():
+    """
+    Clears the kyro_captures SQLite database.
+    """
+    try:
+        from app.core.database import wipe_database
+        success = await wipe_database()
+        if success:
+            global recent_captures
+            recent_captures.clear()
+            return {"status": "success", "message": "Brain memory wiped successfully."}
+        else:
+            raise Exception("Failed to execute wipe operation.")
+    except Exception as e:
+        logger.error(f"Failed to wipe brain memory: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# In-memory config storage for extension preferences (Hackathon MVP)
+extension_config = {
+    "threshold": 100,
+    "autoCapture": True
+}
+
+class ExtensionConfigRequest(BaseModel):
+    threshold: int = None
+    autoCapture: bool = None
+
+@router.get("/config/extension")
+async def get_extension_config():
+    return extension_config
+
+@router.post("/config/extension")
+async def save_extension_config(req: ExtensionConfigRequest):
+    try:
+        if req.threshold is not None:
+            extension_config["threshold"] = req.threshold
+        if req.autoCapture is not None:
+            extension_config["autoCapture"] = req.autoCapture
+        return {"status": "success", "config": extension_config}
+    except Exception as e:
+        logger.error(f"Failed to save extension config: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
