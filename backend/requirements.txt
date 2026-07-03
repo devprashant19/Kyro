@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+cognee
+google-generativeai
+python-dotenv
+psycopg2-binary
+asyncpg
+sqlalchemy
+pgvector
+redis
+sentry-sdk
+beautifulsoup4
+rank_bm25
+pypdf
+anthropic

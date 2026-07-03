@@ -75,7 +75,8 @@ async def websocket_capture(websocket: WebSocket):
                         recent_captures.insert(0, payload)
                         if len(recent_captures) > 50:
                             recent_captures.pop()
-                        # Mocked add_memory
+                        await persist_capture(payload)
+                        await add_memory(payload)
                         logger.info(f"Captured (WS Batch) and Cognitified: {payload.get('title')} from {payload.get('domain')}")
                 else:
                     recent_captures.insert(0, capture_data)
@@ -187,9 +188,13 @@ async def retrieve_context(q: str = Query(..., description="The query string"), 
     """
     Endpoint for the browser extension to retrieve context for prompt injection.
     """
-    if "lenovo" in q.lower():
-        return {"status": "success", "memories": ["Lenovo Group Limited, often shortened to Lenovo, is a Chinese-American multinational technology company specializing in designing, manufacturing, and marketing consumer electronics, personal computers, software, enterprise solutions, and related services."]}
-    return {"status": "success", "memories": ["Captured Context: " + q + " (Demo Fallback)"]}
+    try:
+        results = await search_memories(q)
+        memories = [res.get("text", "") for res in results] if results else []
+        return {"status": "success", "memories": memories}
+    except Exception as e:
+        logger.error(f"Error retrieving context: {str(e)}", exc_info=True)
+        return {"status": "error", "memories": []}
 
 @router.get("/graph", response_model=GraphResponse)
 async def get_knowledge_graph(date: str = None):

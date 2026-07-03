@@ -148,7 +148,7 @@ async def persist_capture(capture: dict) -> bool:
                         "type":         capture.get("type", "web_page"),
                         "text_content": capture.get("text", ""),
                         "metadata":     json.dumps(capture.get("metadata")) if capture.get("metadata") else None,
-                        "captured_at":  capture.get("timestamp", datetime.datetime.utcnow().isoformat()),
+                        "captured_at":  datetime.datetime.fromisoformat(capture.get("timestamp").replace("Z", "+00:00")) if capture.get("timestamp") else datetime.datetime.now(datetime.timezone.utc),
                     }
                 )
         return True
@@ -184,7 +184,7 @@ async def fetch_recent_captures(limit: int = 50) -> list:
                     "domain":    row["domain"],
                     "type":      row["type"],
                     "text":      row["text"],
-                    "metadata":  json.loads(row["metadata"]) if row["metadata"] else None,
+                    "metadata":  row["metadata"] if isinstance(row["metadata"], dict) else (json.loads(row["metadata"]) if row["metadata"] else None),
                     "timestamp": row["captured_at"].isoformat() if row["captured_at"] else None,
                 })
             return captures
