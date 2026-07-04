@@ -116,3 +116,30 @@ async def prune_stale_memories(days: int = 30):
     (Placeholder) Prune old memories.
     """
     logger.info(f"Prune stale memories requested for {days} days.")
+
+
+async def forget_memory(dataset_name: str = "kyro_memories") -> bool:
+    """
+    Scrubs a dataset shard from the Cognee Knowledge Graph — "True Forgetting".
+    Calls cognee.forget() (confirmed available in cognee 1.2.2) to recursively
+    remove all interconnected graph nodes for the given dataset.
+
+    Returns True if the graph scrub succeeded, False if it failed (graceful degradation).
+    """
+    try:
+        # cognee.forget() is confirmed present in cognee 1.2.2
+        await cognee.forget(datasets=[dataset_name])
+        logger.info(f"Cognee graph scrub complete (forget) for dataset: {dataset_name}")
+        return True
+    except Exception as e:
+        logger.warning(f"cognee.forget() raised: {e}. Attempting prune fallback...")
+
+    try:
+        # Fallback: use the prune module
+        await cognee.prune.prune_data(dataset_name=dataset_name)
+        logger.info(f"Cognee prune complete for dataset: {dataset_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Cognee graph scrub fully failed for dataset {dataset_name}: {e}")
+        return False
+
