@@ -178,8 +178,16 @@ chrome.runtime.onMessage.addListener((message: any, _sender: chrome.runtime.Mess
   }
 });
 
-// Listen for the hotkey command
+// Listen for the hotkey commands
 chrome.commands.onCommand.addListener(async (command) => {
+  if (command === "kyro-spotlight") {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_SPOTLIGHT" });
+    }
+    return;
+  }
+
   if (command === "kyro-manual-capture") {
     console.log("Kyro: Manual capture hotkey triggered!");
 
@@ -196,6 +204,19 @@ chrome.commands.onCommand.addListener(async (command) => {
 
       const selectedText = results[0]?.result;
       if (selectedText && selectedText.trim().length > 0) {
+        // Check privacy controls before proceeding
+        const storageResult = await chrome.storage.local.get(['kyro_blocklist', 'kyro_blocklist_mode']);
+        const bl: string[] = storageResult.kyro_blocklist || [];
+        const mode: string = storageResult.kyro_blocklist_mode || 'block';
+        const hostname = new URL(tab.url).hostname;
+        const match = bl.some((d: string) => hostname.includes(d));
+        const allowed = mode === 'allow' ? match : !match;
+
+        if (!allowed) {
+          console.log(`Kyro: Manual capture suppressed by Privacy Controls for: ${hostname}`);
+          return;
+        }
+
         const payload = {
           url: tab.url,
           title: tab.title || "Manual Capture",
@@ -218,6 +239,10 @@ chrome.commands.onCommand.addListener(async (command) => {
 
         if (!socket || socket.readyState !== WebSocket.OPEN) {
           connectWebSocket();
+          // Flush after a short delay to allow socket to connect
+          setTimeout(flushQueue, 1000);
+        } else {
+          flushQueue();
         }
       } else {
         console.log("Kyro: No text was highlighted.");

@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 pydantic-settings
 cognee
@@ -7,7 +7,8 @@ google-generativeai
 python-dotenv
 psycopg2-binary
 asyncpg
-sqlalchemy
+sqlalchemy[asyncio]
+aiosqlite
 pgvector
 redis
 sentry-sdk
@@ -15,3 +16,5 @@ beautifulsoup4
 rank_bm25
 pypdf
 anthropic
+python-jose[cryptography]
+python-multipart
