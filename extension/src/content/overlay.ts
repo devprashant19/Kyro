@@ -178,12 +178,11 @@ export function showMemories(memories: any[], textArea: HTMLElement) {
 }
 
 function injectContext(memoryText: string, textArea: HTMLElement) {
-  const injectionText = '\\n\\n<context>\\n' + memoryText + '\\n</context>\\n';
   if (textArea instanceof HTMLTextAreaElement) {
-    textArea.value = textArea.value + injectionText;
+    textArea.value = memoryText;
     textArea.dispatchEvent(new Event('input', { bubbles: true })); // trigger react
   } else {
-    textArea.innerText = textArea.innerText + injectionText;
+    textArea.innerText = memoryText;
     textArea.dispatchEvent(new Event('input', { bubbles: true }));
   }
   
