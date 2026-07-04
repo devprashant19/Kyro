@@ -210,8 +210,14 @@ export function setupOverlay(getTextAreaFn: () => HTMLElement | null) {
           chrome.runtime.sendMessage(
             { type: "RETRIEVE_CONTEXT", query: text },
             (response) => {
-              if (response && response.status === "success" && response.memories) {
-                showMemories(response.memories, textArea);
+              let currentText = "";
+              if (textArea instanceof HTMLTextAreaElement) currentText = textArea.value;
+              else currentText = textArea.innerText;
+              
+              if (currentText.trim().length > 10) {
+                if (response && response.status === "success" && response.memories) {
+                  showMemories(response.memories, textArea);
+                }
               }
             }
           );
