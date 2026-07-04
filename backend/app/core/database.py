@@ -264,3 +264,43 @@ async def wipe_database() -> bool:
     except Exception as e:
         logger.error(f"DB wipe_database failed: {e}")
         return False
+
+
+async def delete_capture_by_id(capture_id: int) -> bool:
+    """
+    Delete a single capture row from kyro_captures by its integer primary key.
+    Returns True if a row was actually deleted, False otherwise.
+    """
+    if not _async_session:
+        return False
+    try:
+        async with _async_session() as session:
+            async with session.begin():
+                result = await session.execute(
+                    text("DELETE FROM kyro_captures WHERE id = :id"),
+                    {"id": capture_id}
+                )
+                return result.rowcount > 0
+    except Exception as e:
+        logger.error(f"DB delete_capture_by_id({capture_id}) failed: {e}")
+        return False
+
+
+async def delete_captures_by_domain(domain: str) -> int:
+    """
+    Delete all captures from a specific domain.
+    Returns the number of rows deleted.
+    """
+    if not _async_session:
+        return 0
+    try:
+        async with _async_session() as session:
+            async with session.begin():
+                result = await session.execute(
+                    text("DELETE FROM kyro_captures WHERE domain = :domain"),
+                    {"domain": domain}
+                )
+                return result.rowcount
+    except Exception as e:
+        logger.error(f"DB delete_captures_by_domain({domain}) failed: {e}")
+        return 0

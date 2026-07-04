@@ -9,6 +9,7 @@ class ContextCaptureRequest(BaseModel):
     type: Optional[str] = Field("page_view", description="Type of capture event")
     text: Optional[str] = Field(None, description="The captured text content")
     metadata: Optional[Dict[str, Any]] = None
+    user_id: Optional[str] = Field(None, description="Clerk user ID for multi-tenant isolation")
 
 class ChatMessage(BaseModel):
     role: str = Field(..., pattern="^(user|assistant)$", description="Role of the sender")

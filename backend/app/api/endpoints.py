@@ -66,7 +66,7 @@ async def capture_context(request: ContextCaptureRequest):
     try:
         # 1. Keep the in-memory hot-cache for the live feed (fastest)
         global recent_captures
-        capture_data = request.dict()
+        capture_data = request.model_dump()
         recent_captures.insert(0, capture_data)
         if len(recent_captures) > 50:
             recent_captures.pop()
@@ -184,21 +184,16 @@ async def chat(request: ChatRequest):
                 context_text += f"[{i+1}] {mem.get('text', '')}\n"
                 related_memories.append({"id": mem.get('id', str(i)), "label": mem.get('text', '')[:30] + "..."})
                 
-        # 2. Generate response using Gemini bounded to retrieved memories with Chain of Thought
-        prompt = f"""You are Kyro, an advanced AI assistant with a perfect memory powered by a Cognee Knowledge Graph.
+        # 2. Generate response using Gemini bounded to retrieved memories
+        prompt = f"""You are Kyro, an advanced AI assistant with a perfect memory powered by a Knowledge Graph.
         
         The user has asked a question. You MUST answer it using ONLY the retrieved memories below and the context of the Conversation History.
-        If the memories do not contain the answer, explicitly state that you don't remember any context about that. Do not hallucinate external knowledge.
+        If the memories do not contain the answer, politely state that you don't remember any context about that. Do not hallucinate external knowledge.
         
-        INSTRUCTIONS (Chain of Thought):
-        Before answering, silently analyze the retrieved memories step-by-step to determine how they relate to the user's question.
-        1. Identify the core entities in the user's question.
-        2. Scan the retrieved memories for direct mentions or semantic matches to these entities.
-        3. Synthesize the relevant facts into a coherent, accurate answer.
-        
-        FORMAT YOUR RESPONSE AS:
-        **Analysis:** (A brief 1-2 sentence summary of how you arrived at the answer based on the memories)
-        **Answer:** (Your final synthesized answer)
+        INSTRUCTIONS:
+        1. Answer directly and conversationally. Do not include robotic prefixes like "Analysis:" or "Answer:".
+        2. Do not mention that you are an AI or that you don't have feelings. Be helpful, concise, and direct.
+        3. Synthesize the facts seamlessly into your response.
         
         Conversation History:
         {chat_history if chat_history else "No previous conversation."}
@@ -870,3 +865,86 @@ async def save_extension_config(req: ExtensionConfigRequest):
     except Exception as e:
         logger.error(f"Failed to save extension config: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/memory/{memory_id}")
+async def delete_memory(memory_id: str):
+    """
+    True Forgetting — deletes a capture from:
+    1. The in-memory hot cache
+    2. The persistent database (SQLite / PostgreSQL)
+    3. The Cognee Knowledge Graph (recursive node scrub)
+    """
+    global recent_captures
+
+    # 1. Remove from in-memory hot cache
+    before = len(recent_captures)
+    recent_captures = [c for c in recent_captures if str(c.get("id", "")) != memory_id]
+    cache_deleted = len(recent_captures) < before
+
+    # 2. Remove from database
+    db_deleted = False
+    try:
+        from app.core.database import delete_capture_by_id
+        db_deleted = await delete_capture_by_id(int(memory_id))
+    except (ValueError, TypeError):
+        db_deleted = False
+    except Exception as e:
+        logger.error(f"DB delete failed for memory {memory_id}: {e}")
+
+    # 3. Scrub from Cognee Knowledge Graph (True Forgetting)
+    graph_deleted = False
+    try:
+        from app.services.memory_service import forget_memory
+        graph_deleted = await forget_memory()
+    except Exception as e:
+        logger.error(f"Cognee graph scrub failed for memory {memory_id}: {e}")
+
+    logger.info(
+        f"Memory {memory_id} deleted — cache={cache_deleted}, db={db_deleted}, graph={graph_deleted}"
+    )
+    return {
+        "status": "success",
+        "cache_deleted": cache_deleted,
+        "db_deleted": db_deleted,
+        "graph_deleted": graph_deleted,
+        "message": "Memory deleted" + (" (graph node scrubbed)" if graph_deleted else " (graph scrub pending — capture removed from DB)")
+    }
+
+
+@router.delete("/memory/domain/{domain}")
+async def delete_memories_by_domain(domain: str):
+    """
+    Delete ALL captures for a specific domain and trigger a Cognee graph scrub.
+    Useful for bulk removal when a domain is added to the blocklist.
+    """
+    global recent_captures
+
+    # 1. In-memory cache removal
+    before = len(recent_captures)
+    recent_captures = [c for c in recent_captures if c.get("domain", "") != domain]
+    cache_removed = before - len(recent_captures)
+
+    # 2. DB deletion
+    db_removed = 0
+    try:
+        from app.core.database import delete_captures_by_domain
+        db_removed = await delete_captures_by_domain(domain)
+    except Exception as e:
+        logger.error(f"DB bulk delete for domain {domain} failed: {e}")
+
+    # 3. Graph scrub
+    graph_deleted = False
+    try:
+        from app.services.memory_service import forget_memory
+        graph_deleted = await forget_memory()
+    except Exception as e:
+        logger.error(f"Cognee graph scrub failed for domain {domain}: {e}")
+
+    return {
+        "status": "success",
+        "domain": domain,
+        "cache_removed": cache_removed,
+        "db_removed": db_removed,
+        "graph_deleted": graph_deleted,
+    }
