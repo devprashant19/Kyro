@@ -26,7 +26,7 @@ if settings.DEBUG_MODE is False and settings.SENTRY_DSN:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing Kyro Backend and Cognee Memory System...")
-    # await setup_cognee()
+    await setup_cognee()
     await cache.connect()
     await init_db()
     logger.info("Kyro Backend Started successfully.")
