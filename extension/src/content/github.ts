@@ -157,8 +157,8 @@ function injectCollisionNotification(query: string, matchCount: number) {
 
 // Listen for text selection via custom keybind
 document.addEventListener('keydown', (e) => {
-  chrome.storage.local.get(['kyro_capture_keybind'], (result) => {
-    const hotkey = result.kyro_capture_keybind || 'Alt+C';
+  chrome.storage.local.get(['kyro_capture_keybind'], (result: any) => {
+    const hotkey = (result.kyro_capture_keybind as string) || 'Alt+C';
     
     const parts = hotkey.split('+').map((p: string) => p.trim().toLowerCase());
     const needsAlt = parts.includes('alt');

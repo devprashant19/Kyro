@@ -19,10 +19,10 @@ function App() {
   const [domainInput, setDomainInput] = useState('');
 
   useEffect(() => {
-    chrome.storage.local.get(['kyro_capture_keybind', 'kyro_blocklist', 'kyro_blocklist_mode'], (result) => {
-      if (result.kyro_capture_keybind) setCaptureKeybind(result.kyro_capture_keybind);
-      if (result.kyro_blocklist) setBlocklist(result.kyro_blocklist);
-      if (result.kyro_blocklist_mode) setBlocklistMode(result.kyro_blocklist_mode);
+    chrome.storage.local.get(['kyro_capture_keybind', 'kyro_blocklist', 'kyro_blocklist_mode'], (result: any) => {
+      if (result.kyro_capture_keybind) setCaptureKeybind(result.kyro_capture_keybind as string);
+      if (result.kyro_blocklist) setBlocklist(result.kyro_blocklist as string[]);
+      if (result.kyro_blocklist_mode) setBlocklistMode(result.kyro_blocklist_mode as 'block' | 'allow');
     });
   }, []);
 

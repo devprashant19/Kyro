@@ -78,9 +78,9 @@ function checkEngagement() {
   }
 
   if (engagementTime >= REQUIRED_ENGAGEMENT_MS) {
-    chrome.storage.local.get(['kyro_blocklist', 'kyro_blocklist_mode'], (result) => {
-      const bl: string[] = result.kyro_blocklist || [];
-      const mode: 'block' | 'allow' = result.kyro_blocklist_mode || 'block';
+    chrome.storage.local.get(['kyro_blocklist', 'kyro_blocklist_mode'], (result: any) => {
+      const bl: string[] = (result.kyro_blocklist as string[]) || [];
+      const mode: 'block' | 'allow' = (result.kyro_blocklist_mode as 'block' | 'allow') || 'block';
       if (shouldCapture(window.location.hostname, bl, mode)) {
         console.log("[Kyro] User engagement threshold reached. Capturing article.");
         hasCaptured = true;
@@ -106,10 +106,10 @@ document.addEventListener('keydown', recordInteraction, { passive: true });
 setTimeout(checkEngagement, 1000);
 // Listen for text selection via custom keybind
 document.addEventListener('keydown', (e) => {
-  chrome.storage.local.get(['kyro_capture_keybind', 'kyro_blocklist', 'kyro_blocklist_mode'], (result) => {
-    const hotkey = result.kyro_capture_keybind || 'Alt+C';
-    const bl: string[] = result.kyro_blocklist || [];
-    const mode: 'block' | 'allow' = result.kyro_blocklist_mode || 'block';
+  chrome.storage.local.get(['kyro_capture_keybind', 'kyro_blocklist', 'kyro_blocklist_mode'], (result: any) => {
+    const hotkey = (result.kyro_capture_keybind as string) || 'Alt+C';
+    const bl: string[] = (result.kyro_blocklist as string[]) || [];
+    const mode: 'block' | 'allow' = (result.kyro_blocklist_mode as 'block' | 'allow') || 'block';
     
     const parts = hotkey.split('+').map((p: string) => p.trim().toLowerCase());
     const needsAlt = parts.includes('alt');
