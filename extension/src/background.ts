@@ -205,9 +205,9 @@ chrome.commands.onCommand.addListener(async (command) => {
       const selectedText = results[0]?.result;
       if (selectedText && selectedText.trim().length > 0) {
         // Check privacy controls before proceeding
-        const storageResult = await chrome.storage.local.get(['kyro_blocklist', 'kyro_blocklist_mode']);
-        const bl: string[] = storageResult.kyro_blocklist || [];
-        const mode: string = storageResult.kyro_blocklist_mode || 'block';
+        const storageResult: any = await chrome.storage.local.get(['kyro_blocklist', 'kyro_blocklist_mode']);
+        const bl: string[] = (storageResult.kyro_blocklist as string[]) || [];
+        const mode: string = (storageResult.kyro_blocklist_mode as string) || 'block';
         const hostname = new URL(tab.url).hostname;
         const match = bl.some((d: string) => hostname.includes(d));
         const allowed = mode === 'allow' ? match : !match;
