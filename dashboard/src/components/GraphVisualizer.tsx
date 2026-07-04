@@ -168,6 +168,10 @@ export default function GraphVisualizer() {
             sprite.backgroundColor = 'rgba(0,0,0,0.6)';
             sprite.padding = 2;
             sprite.borderRadius = 4;
+            
+            // Offset the text so it renders below the 3D sphere to prevent overlap/clipping
+            sprite.position.y = -12;
+            
             return sprite;
           }}
           nodeThreeObjectExtend={true} // renders both the sphere and the text

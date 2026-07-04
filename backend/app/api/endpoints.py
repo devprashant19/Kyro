@@ -19,7 +19,44 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 router = APIRouter()
 
-recent_captures = []
+# Seed the in-memory array with some realistic hackathon data
+import datetime
+now = datetime.datetime.now().isoformat()
+
+recent_captures = [
+    {
+        "title": "React Flow Documentation",
+        "url": "https://reactflow.dev/docs",
+        "domain": "reactflow.dev",
+        "type": "Document",
+        "text": "React Flow is a highly customizable React component for building node-based editors and interactive diagrams.",
+        "timestamp": now
+    },
+    {
+        "title": "FastAPI WebSockets",
+        "url": "https://fastapi.tiangolo.com/advanced/websockets/",
+        "domain": "fastapi.tiangolo.com",
+        "type": "Document",
+        "text": "You can use WebSockets with FastAPI to create live interactive applications.",
+        "timestamp": now
+    },
+    {
+        "title": "Pull Request: Fix Graph Optimization",
+        "url": "https://github.com/Kyro/Kyro-App/pull/42",
+        "domain": "github.com",
+        "type": "Repository",
+        "text": "This PR optimizes the force-directed graph algorithm for handling 10,000+ nodes smoothly.",
+        "timestamp": now
+    },
+    {
+        "title": "Understanding Cognee RAG",
+        "url": "https://docs.cognee.ai",
+        "domain": "docs.cognee.ai",
+        "type": "Concept",
+        "text": "Cognee is an open-source framework for building deterministic AI applications with Knowledge Graphs.",
+        "timestamp": now
+    }
+]
 
 @router.post("/capture")
 async def capture_context(request: ContextCaptureRequest):
@@ -309,27 +346,70 @@ async def get_knowledge_graph(date: str = None):
             "edges": rf_edges
         }
 
-    # Fallback to a beautiful mock graph for the Hackathon Demo if the database is currently empty
-    nodes = [
-        {"id": "core", "data": {"label": "Kyro Context OS", "type": "Concept"}, "position": {"x": 400, "y": 300}},
-        {"id": "n1", "data": {"label": "React Flow", "type": "Repository"}, "position": {"x": 550, "y": 250}},
-        {"id": "n2", "data": {"label": "FastAPI Backend", "type": "Document"}, "position": {"x": 300, "y": 150}},
-        {"id": "n3", "data": {"label": "Graph Optimization", "type": "Concept"}, "position": {"x": 600, "y": 400}},
-        {"id": "n4", "data": {"label": "Puneet Yadav", "type": "Person"}, "position": {"x": 250, "y": 450}},
-        {"id": "n5", "data": {"label": "Cognee Knowledge Graph", "type": "Repository"}, "position": {"x": 450, "y": 100}},
-        {"id": "n6", "data": {"label": "Time Travel Engine", "type": "Concept"}, "position": {"x": 200, "y": 300}},
-    ]
+    # Fallback: Generate a dynamic graph from actual recent captures if Cognee is empty
+    global recent_captures
+    if not recent_captures:
+        # Absolute empty state
+        return {
+            "nodes": [{"id": "core", "data": {"label": "Kyro Context OS", "type": "Concept"}, "position": {"x": 400, "y": 300}}],
+            "edges": []
+        }
+        
+    nodes = [{"id": "core", "data": {"label": "Kyro User", "type": "Person"}, "position": {"x": 400, "y": 300}}]
+    edges = []
     
-    edges = [
-        {"id": "e_core_n1", "source": "core", "target": "n1"},
-        {"id": "e_core_n2", "source": "core", "target": "n2"},
-        {"id": "e_core_n4", "source": "core", "target": "n4"},
-        {"id": "e_n1_n3", "source": "n1", "target": "n3"},
-        {"id": "e_core_n5", "source": "core", "target": "n5"},
-        {"id": "e_n4_n6", "source": "n4", "target": "n6"},
-        {"id": "e_n6_n3", "source": "n6", "target": "n3"},
-    ]
+    import math
     
+    # Extract unique domains to build intermediate cluster nodes
+    domains = list(set([cap.get("domain", "unknown") for cap in recent_captures if cap.get("domain")]))
+    
+    domain_radius = 150
+    for i, domain in enumerate(domains):
+        angle = (i / len(domains)) * 2 * math.pi
+        x = 400 + domain_radius * math.cos(angle)
+        y = 300 + domain_radius * math.sin(angle)
+        domain_id = f"domain_{i}"
+        
+        nodes.append({
+            "id": domain_id,
+            "data": {"label": domain, "type": "Repository"},
+            "position": {"x": x, "y": y}
+        })
+        edges.append({"id": f"e_core_{domain_id}", "source": "core", "target": domain_id})
+        
+    # Attach individual captures to their domain clusters
+    cap_radius = 80
+    domain_cap_counts = {d: 0 for d in domains}
+    
+    for i, cap in enumerate(recent_captures):
+        domain = cap.get("domain", "unknown")
+        domain_idx = domains.index(domain) if domain in domains else 0
+        domain_id = f"domain_{domain_idx}"
+        
+        # Calculate base x,y of the domain
+        dx = nodes[domain_idx + 1]["position"]["x"]
+        dy = nodes[domain_idx + 1]["position"]["y"]
+        
+        # Offset the capture node in a small circle around the domain
+        count = domain_cap_counts.get(domain, 0)
+        c_angle = count * 0.5
+        cx = dx + cap_radius * math.cos(c_angle)
+        cy = dy + cap_radius * math.sin(c_angle)
+        
+        cap_id = f"cap_{i}"
+        node_type = "Document"
+        if "github" in domain.lower(): node_type = "Repository"
+        elif "youtube" in domain.lower(): node_type = "Concept"
+        
+        nodes.append({
+            "id": cap_id,
+            "data": {"label": cap.get("title", "Unknown")[:30], "type": node_type},
+            "position": {"x": cx, "y": cy}
+        })
+        edges.append({"id": f"e_{domain_id}_{cap_id}", "source": domain_id, "target": cap_id})
+        
+        domain_cap_counts[domain] = count + 1
+
     return {
         "nodes": nodes,
         "edges": edges
@@ -561,38 +641,37 @@ async def ingest_custom_data(request: CustomIngestionRequest):
 @router.get("/analytics/activity")
 async def get_activity_heatmap():
     """
-    Returns activity data for the last 90 days.
-    For hackathon purposes, this dynamically generates a seeded heatmap
-    and merges it with live recent_captures data for today.
+    Returns activity data for the last 90 days from the database.
     """
     import datetime
-    
     try:
+        from app.core.database import get_daily_activity
+        db_activity = await get_daily_activity(90)
+        
         activity = []
         today = datetime.date.today()
         
-        # Generate 90 days of empty data, fill today with actual
         for i in range(89, -1, -1):
-            date = today - datetime.timedelta(days=i)
-            weight = 0
+            date_obj = today - datetime.timedelta(days=i)
+            date_str = date_obj.isoformat()
             
-            # If it's today, base it on actual recent captures
-            if i == 0:
-                global recent_captures
-                capture_count = len(recent_captures)
-                if capture_count == 0:
-                    weight = 0
-                elif capture_count < 3:
-                    weight = 1
-                elif capture_count < 10:
-                    weight = 2
-                elif capture_count < 20:
-                    weight = 3
-                else:
-                    weight = 4
-                    
+            # Fetch count from real DB query
+            capture_count = db_activity.get(date_str, 0)
+            
+            weight = 0
+            if capture_count == 0:
+                weight = 0
+            elif capture_count < 3:
+                weight = 1
+            elif capture_count < 10:
+                weight = 2
+            elif capture_count < 20:
+                weight = 3
+            else:
+                weight = 4
+                
             activity.append({
-                "date": date.isoformat(),
+                "date": date_str,
                 "count": weight
             })
             
@@ -604,32 +683,20 @@ async def get_activity_heatmap():
 @router.get("/analytics/clusters")
 async def get_concept_clusters():
     """
-    Returns trending concept clusters.
-    For hackathon MVP, returns seed data.
+    Returns trending concept clusters from the database.
     """
     try:
-        global recent_captures
+        from app.core.database import get_domain_clusters
+        db_clusters = await get_domain_clusters(8)
         
-        # Calculate real domain clusters from recent captures
-        domain_counts = {}
-        for cap in recent_captures:
-            domain = cap.get("domain", "unknown")
-            if domain:
-                domain_counts[domain] = domain_counts.get(domain, 0) + 1
-                
         clusters = []
-        if domain_counts:
-            # Sort by frequency
-            sorted_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)
-            max_count = sorted_domains[0][1]
+        if db_clusters:
+            max_count = max([c["count"] for c in db_clusters]) if db_clusters else 1
             
-            for domain, count in sorted_domains[:8]:
+            for c in db_clusters:
                 # Normalize weight between 20 and 95 for UI sizing
-                weight = int((count / max_count) * 75) + 20
-                clusters.append({"concept": domain, "weight": weight})
-        else:
-            # Empty state
-            clusters = []
+                weight = int((c["count"] / max_count) * 75) + 20
+                clusters.append({"concept": c["domain"], "weight": weight})
             
         return {"clusters": clusters}
     except Exception as e:
@@ -709,4 +776,97 @@ Here is the raw data:
         
     except Exception as e:
         logger.error(f"Error generating weekly report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+from pydantic import BaseModel
+class ConfigKeyRequest(BaseModel):
+    key: str
+
+@router.post("/config/key")
+async def save_api_key(req: ConfigKeyRequest):
+    """
+    Saves the provided API key to the .env file.
+    """
+    try:
+        import os
+        
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+        
+        # Read existing .env
+        env_content = []
+        key_found = False
+        
+        if os.path.exists(env_path):
+            with open(env_path, "r") as f:
+                env_content = f.readlines()
+                
+        # Update or append GEMINI_API_KEY
+        for i, line in enumerate(env_content):
+            if line.startswith("GEMINI_API_KEY="):
+                env_content[i] = f"GEMINI_API_KEY={req.key}\n"
+                key_found = True
+                break
+                
+        if not key_found:
+            if env_content and not env_content[-1].endswith("\n"):
+                env_content.append("\n")
+            env_content.append(f"GEMINI_API_KEY={req.key}\n")
+            
+        with open(env_path, "w") as f:
+            f.writelines(env_content)
+            
+        # Update current process env
+        os.environ["GEMINI_API_KEY"] = req.key
+        
+        # Dynamically reconfigure the Gemini module so it works immediately
+        import google.generativeai as genai
+        genai.configure(api_key=req.key)
+        
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Failed to save API key: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/data/wipe")
+async def wipe_brain_memory():
+    """
+    Clears the kyro_captures SQLite database.
+    """
+    try:
+        from app.core.database import wipe_database
+        success = await wipe_database()
+        if success:
+            global recent_captures
+            recent_captures.clear()
+            return {"status": "success", "message": "Brain memory wiped successfully."}
+        else:
+            raise Exception("Failed to execute wipe operation.")
+    except Exception as e:
+        logger.error(f"Failed to wipe brain memory: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# In-memory config storage for extension preferences (Hackathon MVP)
+extension_config = {
+    "threshold": 100,
+    "autoCapture": True
+}
+
+class ExtensionConfigRequest(BaseModel):
+    threshold: int = None
+    autoCapture: bool = None
+
+@router.get("/config/extension")
+async def get_extension_config():
+    return extension_config
+
+@router.post("/config/extension")
+async def save_extension_config(req: ExtensionConfigRequest):
+    try:
+        if req.threshold is not None:
+            extension_config["threshold"] = req.threshold
+        if req.autoCapture is not None:
+            extension_config["autoCapture"] = req.autoCapture
+        return {"status": "success", "config": extension_config}
+    except Exception as e:
+        logger.error(f"Failed to save extension config: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

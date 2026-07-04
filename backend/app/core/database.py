@@ -37,12 +37,8 @@ except ImportError:
 
 # ── Connection config ─────────────────────────────────────────────────────────
 def _build_db_url() -> str:
-    host     = os.getenv("DB_HOST",     "localhost")
-    port     = os.getenv("DB_PORT",     "5432")
-    name     = os.getenv("DB_NAME",     "cognee_db")
-    user     = os.getenv("DB_USERNAME", "cognee")
-    password = os.getenv("DB_PASSWORD", "cognee")
-    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+    # Use SQLite for easy manual access and hackathon portability
+    return os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./kyro_captures.db")
 
 # Module-level engine (created lazily in init_db)
 _engine = None
@@ -52,14 +48,14 @@ _async_session = None
 # ── DDL ───────────────────────────────────────────────────────────────────────
 _CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS kyro_captures (
-    id           BIGSERIAL PRIMARY KEY,
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
     url          TEXT        NOT NULL,
     title        TEXT        NOT NULL,
     domain       TEXT        NOT NULL DEFAULT '',
     type         TEXT        NOT NULL DEFAULT 'web_page',
     text_content TEXT,
-    metadata     JSONB,
-    captured_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    metadata     JSON,
+    captured_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -70,9 +66,7 @@ _INDEX_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_captures_type        ON kyro_captures (type);",
     "CREATE INDEX IF NOT EXISTS idx_captures_captured_at ON kyro_captures (captured_at DESC);",
     # Composite index for the Timeline query (ORDER BY captured_at, filter by domain)
-    "CREATE INDEX IF NOT EXISTS idx_captures_domain_time ON kyro_captures (domain, captured_at DESC);",
-    # GIN index for full-text search — forward-looking for a /search endpoint
-    "CREATE INDEX IF NOT EXISTS idx_captures_text_fts ON kyro_captures USING GIN (to_tsvector('english', COALESCE(text_content, '')));",
+    "CREATE INDEX IF NOT EXISTS idx_captures_domain_time ON kyro_captures (domain, captured_at DESC);"
 ]
 
 
@@ -91,10 +85,7 @@ async def init_db():
         db_url = _build_db_url()
         _engine = create_async_engine(
             db_url,
-            pool_size=5,
-            max_overflow=10,
             pool_pre_ping=True,          # Detect stale connections
-            connect_args={"server_settings": {"application_name": "kyro-backend"}},
         )
         _async_session = sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -223,3 +214,53 @@ async def get_capture_stats() -> dict:
     except Exception as e:
         logger.error(f"DB get_capture_stats failed: {e}")
         return {"total": 0, "average": 0, "streak": 0}
+
+async def get_daily_activity(days: int = 90) -> dict:
+    """Returns a dictionary mapping date strings to capture counts for the last `days` days."""
+    if not _async_session:
+        return {}
+    try:
+        async with _async_session() as session:
+            result = await session.execute(text(f"""
+                SELECT DATE(captured_at) as date, COUNT(*) as count
+                FROM kyro_captures
+                WHERE captured_at >= date('now', '-{days} days')
+                GROUP BY DATE(captured_at)
+            """))
+            rows = result.mappings().all()
+            return {row["date"]: row["count"] for row in rows}
+    except Exception as e:
+        logger.error(f"DB get_daily_activity failed: {e}")
+        return {}
+
+async def get_domain_clusters(limit: int = 8) -> list:
+    """Returns trending domain clusters based on frequency."""
+    if not _async_session:
+        return []
+    try:
+        async with _async_session() as session:
+            result = await session.execute(text(f"""
+                SELECT domain, COUNT(*) as count
+                FROM kyro_captures
+                WHERE domain IS NOT NULL AND domain != ''
+                GROUP BY domain
+                ORDER BY count DESC
+                LIMIT {limit}
+            """))
+            return result.mappings().all()
+    except Exception as e:
+        logger.error(f"DB get_domain_clusters failed: {e}")
+        return []
+
+async def wipe_database() -> bool:
+    """Wipes the kyro_captures table completely."""
+    if not _async_session:
+        return False
+    try:
+        async with _async_session() as session:
+            await session.execute(text("DELETE FROM kyro_captures"))
+            await session.commit()
+            return True
+    except Exception as e:
+        logger.error(f"DB wipe_database failed: {e}")
+        return False
