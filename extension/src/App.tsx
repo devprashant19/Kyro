@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Upload, Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw, Keyboard } from 'lucide-react';
+import { Trash2, Upload, Settings, Power, Activity, ExternalLink, ShieldCheck, Database, RefreshCw, Keyboard, Shield, X, Plus } from 'lucide-react';
 import { useAuth } from '@clerk/chrome-extension';
 import { Onboarding } from './components/Onboarding';
 import { Auth } from './components/Auth';
@@ -13,13 +13,41 @@ function App() {
   const [captureKeybind, setCaptureKeybind] = useState<string>('Alt + C');
   const [isRecordingKeybind, setIsRecordingKeybind] = useState(false);
 
+  // Privacy Controls state
+  const [blocklist, setBlocklist] = useState<string[]>([]);
+  const [blocklistMode, setBlocklistMode] = useState<'block' | 'allow'>('block');
+  const [domainInput, setDomainInput] = useState('');
+
   useEffect(() => {
-    chrome.storage.local.get(['kyro_capture_keybind'], (result) => {
-      if (result.kyro_capture_keybind) {
-        setCaptureKeybind(result.kyro_capture_keybind);
-      }
+    chrome.storage.local.get(['kyro_capture_keybind', 'kyro_blocklist', 'kyro_blocklist_mode'], (result) => {
+      if (result.kyro_capture_keybind) setCaptureKeybind(result.kyro_capture_keybind);
+      if (result.kyro_blocklist) setBlocklist(result.kyro_blocklist);
+      if (result.kyro_blocklist_mode) setBlocklistMode(result.kyro_blocklist_mode);
     });
   }, []);
+
+  const addBlocklistDomain = () => {
+    const domain = domainInput.trim().replace(/https?:\/\//, '').replace(/\/.*/, '').toLowerCase();
+    if (!domain || blocklist.includes(domain)) { setDomainInput(''); return; }
+    const updated = [...blocklist, domain];
+    setBlocklist(updated);
+    chrome.storage.local.set({ kyro_blocklist: updated });
+    setDomainInput('');
+    setToastMessage(`Added: ${domain}`);
+  };
+
+  const removeBlocklistDomain = (domain: string) => {
+    const updated = blocklist.filter(d => d !== domain);
+    setBlocklist(updated);
+    chrome.storage.local.set({ kyro_blocklist: updated });
+  };
+
+  const toggleBlocklistMode = () => {
+    const next = blocklistMode === 'block' ? 'allow' : 'block';
+    setBlocklistMode(next);
+    chrome.storage.local.set({ kyro_blocklist_mode: next });
+    setToastMessage(next === 'block' ? 'Mode: Block listed domains' : 'Mode: Allow listed domains only');
+  };
 
   const handleKeybindRecord = (e: React.KeyboardEvent) => {
     e.preventDefault();
@@ -127,8 +155,8 @@ function App() {
         <div className="flex items-center gap-3">
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
-            <div className="relative w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center border border-white/10">
-              <span className="font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 text-sm">K</span>
+            <div className="relative w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center border border-white/10 overflow-hidden">
+              <img src="/icons/icon128.png" alt="Kyro" className="w-full h-full object-cover" />
             </div>
           </div>
           <div>
@@ -212,6 +240,72 @@ function App() {
              >
                {isRecordingKeybind ? 'Listening...' : captureKeybind}
              </button>
+          </div>
+        </div>
+
+        {/* Privacy Controls Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Shield size={14} /> Privacy Controls
+            </h2>
+            <button
+              onClick={toggleBlocklistMode}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-all ${
+                blocklistMode === 'block'
+                  ? 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
+                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+              }`}
+              title="Toggle between blocking listed domains or allowing only listed domains"
+            >
+              {blocklistMode === 'block' ? '🚫 Blocklist Mode' : '✅ Allowlist Mode'}
+            </button>
+          </div>
+
+          <div className="glass-card rounded-lg p-3 border border-white/5 space-y-2">
+            <p className="text-[10px] text-zinc-500 leading-relaxed">
+              {blocklistMode === 'block'
+                ? 'Kyro will NOT capture from these domains.'
+                : 'Kyro will ONLY capture from these domains.'}
+            </p>
+
+            {/* Input Row */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={domainInput}
+                onChange={e => setDomainInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addBlocklistDomain()}
+                placeholder="e.g. bankofamerica.com"
+                className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-purple-500/50 transition-colors"
+              />
+              <button
+                onClick={addBlocklistDomain}
+                className="p-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg border border-purple-500/30 transition-all"
+                title="Add domain"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            {/* Domain List */}
+            {blocklist.length > 0 ? (
+              <div className="space-y-1 max-h-28 overflow-y-auto">
+                {blocklist.map(domain => (
+                  <div key={domain} className="flex items-center justify-between bg-white/5 rounded-md px-3 py-1.5 group/domain">
+                    <span className="text-xs text-zinc-300 font-mono truncate">{domain}</span>
+                    <button
+                      onClick={() => removeBlocklistDomain(domain)}
+                      className="opacity-0 group-hover/domain:opacity-100 p-0.5 text-zinc-500 hover:text-red-400 transition-all ml-2 flex-shrink-0"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-zinc-600 text-center py-2">No domains added yet.</p>
+            )}
           </div>
         </div>
 

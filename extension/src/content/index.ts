@@ -1,3 +1,14 @@
+import { toggleSpotlight } from './spotlight';
+
+// Listen for TOGGLE_SPOTLIGHT from the background service worker
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'TOGGLE_SPOTLIGHT') {
+    toggleSpotlight();
+  }
+});
+
+
+
 function extractMainContent(): string {
   // Try to find the main content container
   const selectors = ['article', 'main', '.markdown-body', '.post-content', '#content', '[role="main"]'];
@@ -50,6 +61,13 @@ let lastInteraction = Date.now();
 // 15 seconds of active reading required for Hackathon demo (Production would be 120s)
 const REQUIRED_ENGAGEMENT_MS = 15000; 
 
+// Privacy guard — reads blocklist from storage before firing a capture
+function shouldCapture(hostname: string, blocklist: string[], mode: 'block' | 'allow'): boolean {
+  const match = blocklist.some(d => hostname.includes(d));
+  if (mode === 'allow') return match;   // Allowlist: capture ONLY if in list
+  return !match;                         // Blocklist: capture if NOT in list
+}
+
 function checkEngagement() {
   if (hasCaptured) return;
   
@@ -60,9 +78,18 @@ function checkEngagement() {
   }
 
   if (engagementTime >= REQUIRED_ENGAGEMENT_MS) {
-    console.log("[Kyro] User engagement threshold reached. Capturing article.");
-    hasCaptured = true;
-    captureContext();
+    chrome.storage.local.get(['kyro_blocklist', 'kyro_blocklist_mode'], (result) => {
+      const bl: string[] = result.kyro_blocklist || [];
+      const mode: 'block' | 'allow' = result.kyro_blocklist_mode || 'block';
+      if (shouldCapture(window.location.hostname, bl, mode)) {
+        console.log("[Kyro] User engagement threshold reached. Capturing article.");
+        hasCaptured = true;
+        captureContext();
+      } else {
+        console.log(`[Kyro] Capture suppressed by Privacy Controls for: ${window.location.hostname}`);
+        hasCaptured = true; // Mark as handled so we don't retry
+      }
+    });
   } else {
     // Check again in 1 second
     setTimeout(checkEngagement, 1000);
@@ -79,8 +106,10 @@ document.addEventListener('keydown', recordInteraction, { passive: true });
 setTimeout(checkEngagement, 1000);
 // Listen for text selection via custom keybind
 document.addEventListener('keydown', (e) => {
-  chrome.storage.local.get(['kyro_capture_keybind'], (result) => {
+  chrome.storage.local.get(['kyro_capture_keybind', 'kyro_blocklist', 'kyro_blocklist_mode'], (result) => {
     const hotkey = result.kyro_capture_keybind || 'Alt+C';
+    const bl: string[] = result.kyro_blocklist || [];
+    const mode: 'block' | 'allow' = result.kyro_blocklist_mode || 'block';
     
     const parts = hotkey.split('+').map((p: string) => p.trim().toLowerCase());
     const needsAlt = parts.includes('alt');
@@ -96,6 +125,12 @@ document.addEventListener('keydown', (e) => {
       e.metaKey === needsMeta &&
       key && e.key.toLowerCase() === key
     ) {
+      // Check privacy controls before capturing
+      if (!shouldCapture(window.location.hostname, bl, mode)) {
+        console.log(`[Kyro] Keybind capture suppressed by Privacy Controls for: ${window.location.hostname}`);
+        return;
+      }
+
       const selection = window.getSelection()?.toString();
       if (selection && selection.length > 0) {
         chrome.runtime.sendMessage({

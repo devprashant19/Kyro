@@ -26,6 +26,13 @@
         "mac": "MacCtrl+Shift+K"
       },
       "description": "Capture highlighted text to Kyro MemoryOS"
+    },
+    "kyro-spotlight": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "MacCtrl+Shift+Space"
+      },
+      "description": "Open Ask Kyro spotlight search overlay"
     }
   },
   "action": {
