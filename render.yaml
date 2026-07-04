@@ -1,0 +1,51 @@
+# Kyro Cloud Deployment — Render.yaml
+# =====================================
+# Deploys the Kyro backend as a managed web service on Render.com
+# with an attached managed PostgreSQL database.
+#
+# Deploy steps:
+# 1. Push this file to the root of your GitHub repo.
+# 2. Go to https://dashboard.render.com → New → Blueprint
+# 3. Connect your GitHub repo and Render will auto-detect this file.
+# 4. Add your secret env vars (GEMINI_API_KEY, CLERK_PEM_PUBLIC_KEY, COGNEE_API_KEY)
+#    in the Render Dashboard after initial deploy.
+
+services:
+  - type: web
+    name: kyro-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free   # Upgrade to "starter" or higher for production
+    autoDeploy: true
+    envVars:
+      # Managed PostgreSQL connection string (auto-injected by Render)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kyro-postgres
+          property: connectionString
+
+      # Cognee vector DB — use lancedb in /tmp for cloud (ephemeral is fine for demo)
+      - key: VECTOR_DB_PROVIDER
+        value: lancedb
+
+      # Multi-tenant auth switch — set to "true" once Clerk keys are configured
+      - key: ENABLE_AUTH
+        value: "false"
+
+      # Secret keys — add these manually in the Render dashboard (never commit to git)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: COGNEE_API_KEY
+        sync: false
+      - key: CLERK_PEM_PUBLIC_KEY
+        sync: false
+
+    healthCheckPath: /health
+
+databases:
+  - name: kyro-postgres
+    databaseName: kyro_prod
+    user: kyro
+    plan: free   # 1 GB storage, upgrade for production
