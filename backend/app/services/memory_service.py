@@ -1,4 +1,5 @@
 import os
+os.environ["COGNEE_SKIP_CONNECTION_TEST"] = "true"
 import logging
 import asyncio
 from typing import List, Dict, Any
