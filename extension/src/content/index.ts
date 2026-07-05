@@ -115,15 +115,19 @@ document.addEventListener('keydown', (e) => {
     const needsAlt = parts.includes('alt');
     const needsCtrl = parts.includes('ctrl');
     const needsShift = parts.includes('shift');
-    const needsMeta = parts.includes('meta');
-    const key = parts.find((p: string) => !['alt', 'ctrl', 'shift', 'meta'].includes(p));
+    const needsMeta = parts.includes('meta') || parts.includes('cmd');
+    const key = parts.find((p: string) => !['alt', 'ctrl', 'shift', 'meta', 'cmd'].includes(p));
+    
+    // Use e.code (e.g. "KeyC") instead of e.key because when Alt is held,
+    // e.key returns special chars like "©" instead of "c" on some systems.
+    const pressedKey = e.code.replace('Key', '').replace('Digit', '').toLowerCase();
     
     if (
       e.altKey === needsAlt &&
       e.ctrlKey === needsCtrl &&
       e.shiftKey === needsShift &&
       e.metaKey === needsMeta &&
-      key && e.key.toLowerCase() === key
+      key && pressedKey === key
     ) {
       // Check privacy controls before capturing
       if (!shouldCapture(window.location.hostname, bl, mode)) {

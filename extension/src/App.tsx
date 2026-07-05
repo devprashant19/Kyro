@@ -35,7 +35,9 @@ function App() {
     if (e.shiftKey) parts.push('Shift');
     if (e.metaKey) parts.push('Cmd');
     
-    parts.push(e.key.toUpperCase());
+    // Use e.code to get the physical key (avoids Alt+C giving "©" etc.)
+    const physicalKey = e.code.replace('Key', '').replace('Digit', '');
+    parts.push(physicalKey);
     const newBind = parts.join(' + ');
     
     setCaptureKeybind(newBind);
