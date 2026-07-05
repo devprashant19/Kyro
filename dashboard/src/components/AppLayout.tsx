@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, LayoutDashboard, Settings, Compass, Blocks, ChevronDown } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, Settings, Compass, Blocks, ChevronDown, Shield } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -32,6 +32,7 @@ export default function AppLayout() {
     { name: 'Overview', path: '/app', icon: <Compass size={18} /> },
     { name: 'Dashboard', path: '/app/dashboard', icon: <LayoutDashboard size={18} /> },
     { name: 'Extension', path: '/app/extension', icon: <Blocks size={18} /> },
+    { name: 'Privacy', path: '/app/privacy', icon: <Shield size={18} /> },
   ];
 
   return (

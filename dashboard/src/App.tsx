@@ -8,6 +8,7 @@ import AppLayout from './components/AppLayout';
 import AppHome from './pages/AppHome';
 import ExtensionPage from './pages/ExtensionPage';
 import HowItWorksPage from './pages/HowItWorksPage';
+import PrivacyPage from './pages/PrivacyPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/app/dashboard/*" element={<DashboardLayout />} />
           <Route path="/app/extension" element={<ExtensionPage />} />
           <Route path="/app/how-it-works" element={<HowItWorksPage />} />
+          <Route path="/app/privacy" element={<PrivacyPage />} />
           <Route path="/app/settings" element={<Navigate to="/app/dashboard" replace />} />
         </Route>
       </Route>
