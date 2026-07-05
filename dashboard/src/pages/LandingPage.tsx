@@ -18,7 +18,7 @@ export default function LandingPage() {
           <div className="relative">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
             <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-900 shadow-md border border-white/10">
-              <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 text-sm font-bold">K</span>
+              <img src="/logo.png" alt="Kyro" className="w-6 h-6 object-contain" />
             </div>
           </div>
           Kyro
@@ -127,7 +127,7 @@ export default function LandingPage() {
           {/* Logo */}
           <div className="flex items-center justify-center gap-2 mb-8">
             <div className="w-8 h-8 rounded-lg bg-zinc-900 shadow-md border border-white/10 flex items-center justify-center">
-              <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 text-sm font-bold">K</span>
+              <img src="/logo.png" alt="Kyro" className="w-5 h-5 object-contain" />
             </div>
             <span className="font-bold text-white text-xl tracking-tight">Kyro</span>
           </div>

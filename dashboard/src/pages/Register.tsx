@@ -50,7 +50,7 @@ export default function Register() {
           <div className="relative">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
             <div className="relative flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-900 shadow-md border border-white/10">
-              <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 text-xl font-bold">K</span>
+              <img src="/logo.png" alt="Kyro" className="w-8 h-8 object-contain" />
             </div>
           </div>
           <span className="text-2xl font-bold tracking-tight">Kyro</span>

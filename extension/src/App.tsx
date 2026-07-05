@@ -126,7 +126,7 @@ function App() {
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
             <div className="relative w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center border border-white/10 overflow-hidden">
-              <img src="/icons/icon128.png" alt="Kyro" className="w-full h-full object-cover" />
+              <img src="/logo.png" alt="Kyro" className="w-full h-full object-cover" />
             </div>
           </div>
           <div>

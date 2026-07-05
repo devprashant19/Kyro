@@ -146,7 +146,7 @@ export default function DashboardLayout() {
             <div className="relative">
               <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
               <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-900 shadow-md border border-white/10">
-                <span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400 text-sm font-bold">K</span>
+                <img src="/logo.png" alt="Kyro" className="w-6 h-6 object-contain" />
               </div>
             </div>
             Kyro
@@ -533,7 +533,7 @@ function ChatComponent() {
               <div className="relative flex-shrink-0">
                 {msg.role === 'assistant' && <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-30"></div>}
                 <div className={`relative w-10 h-10 rounded-xl ${msg.role === 'user' ? 'bg-gradient-to-tr from-blue-500 to-purple-500' : 'bg-zinc-900 border border-white/10'} flex items-center justify-center text-white shadow-md`}>
-                  {msg.role === 'user' ? <User size={20} /> : <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-purple-400">K</span>}
+                  {msg.role === 'user' ? <User size={20} /> : <img src="/logo.png" alt="Kyro" className="w-5 h-5 object-contain" />}
                 </div>
               </div>
               <div className={`flex flex-col w-[85%] md:w-auto ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
