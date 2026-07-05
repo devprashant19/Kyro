@@ -23,40 +23,7 @@ router = APIRouter()
 import datetime
 now = datetime.datetime.now().isoformat()
 
-recent_captures = [
-    {
-        "title": "React Flow Documentation",
-        "url": "https://reactflow.dev/docs",
-        "domain": "reactflow.dev",
-        "type": "Document",
-        "text": "React Flow is a highly customizable React component for building node-based editors and interactive diagrams.",
-        "timestamp": now
-    },
-    {
-        "title": "FastAPI WebSockets",
-        "url": "https://fastapi.tiangolo.com/advanced/websockets/",
-        "domain": "fastapi.tiangolo.com",
-        "type": "Document",
-        "text": "You can use WebSockets with FastAPI to create live interactive applications.",
-        "timestamp": now
-    },
-    {
-        "title": "Pull Request: Fix Graph Optimization",
-        "url": "https://github.com/Kyro/Kyro-App/pull/42",
-        "domain": "github.com",
-        "type": "Repository",
-        "text": "This PR optimizes the force-directed graph algorithm for handling 10,000+ nodes smoothly.",
-        "timestamp": now
-    },
-    {
-        "title": "Understanding Cognee RAG",
-        "url": "https://docs.cognee.ai",
-        "domain": "docs.cognee.ai",
-        "type": "Concept",
-        "text": "Cognee is an open-source framework for building deterministic AI applications with Knowledge Graphs.",
-        "timestamp": now
-    }
-]
+recent_captures = []
 
 @router.post("/capture")
 async def capture_context(request: ContextCaptureRequest):
