@@ -6,4 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   envDir: '../', // Load root monorepo .env file
+  server: {
+    port: 5173,
+    strictPort: true
+  }
 })
