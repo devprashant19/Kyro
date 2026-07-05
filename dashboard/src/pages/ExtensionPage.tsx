@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Download, CheckCircle2, ShieldCheck, Zap, Globe, Github } from 'lucide-react';
+import { Download, CheckCircle2, ShieldCheck, Zap, Globe, Code } from 'lucide-react';
 import GridBackground from '../components/GridBackground';
 
 export default function ExtensionPage() {
@@ -42,7 +42,7 @@ export default function ExtensionPage() {
                   rel="noopener noreferrer"
                   className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-xl transition-all border border-white/10 flex items-center gap-2"
                 >
-                  <Github size={18} /> GitHub
+                  <Code size={18} /> GitHub
                 </a>
               </div>
             </div>
