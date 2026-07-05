@@ -796,10 +796,16 @@ async def wipe_brain_memory():
     """
     try:
         from app.core.database import wipe_database
+        import cognee
+        
         success = await wipe_database()
         if success:
             global recent_captures
             recent_captures.clear()
+            
+            # Wipe the cognee graph data as well
+            await cognee.prune.prune_data()
+            
             return {"status": "success", "message": "Brain memory wiped successfully."}
         else:
             raise Exception("Failed to execute wipe operation.")
