@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Download, CheckCircle2, ShieldCheck, Zap, Globe } from 'lucide-react';
+import { Download, CheckCircle2, ShieldCheck, Zap, Globe, Github } from 'lucide-react';
 import GridBackground from '../components/GridBackground';
 
 export default function ExtensionPage() {
@@ -28,15 +28,23 @@ export default function ExtensionPage() {
                 The Kyro extension runs silently in the background of your browser, capturing your interactions with various AI platforms and beaming them directly into your local Knowledge Graph.
               </p>
               
-              <button 
-                onClick={() => {
-                  alert('Downloading the Kyro Chrome Extension zip file...');
-                  window.open('https://github.com/puneetnith28/Kyro/tree/main/extension', '_blank');
-                }}
-                className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] flex items-center gap-2"
-              >
-                <Download size={18} /> Download Extension
-              </button>
+              <div className="flex items-center gap-4">
+                <a 
+                  href="/kyro-extension.zip"
+                  download
+                  className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] flex items-center gap-2"
+                >
+                  <Download size={18} /> Download Extension
+                </a>
+                <a 
+                  href="https://github.com/puneetnith28/Kyro/tree/main/extension"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-xl transition-all border border-white/10 flex items-center gap-2"
+                >
+                  <Github size={18} /> GitHub
+                </a>
+              </div>
             </div>
           </motion.div>
         </div>
