@@ -46,9 +46,8 @@ export default function AppLayout() {
             onClick={() => navigate('/app')}
             className="flex items-center gap-2.5 font-bold text-white text-xl tracking-tight cursor-pointer group"
           >
-            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-900 shadow-md border border-white/10 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 opacity-50 group-hover:opacity-100 transition-opacity"></div>
-              <span className="relative text-white font-bold text-lg">K</span>
+            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg overflow-hidden">
+              <img src="/logo.png" alt="Kyro Logo" className="w-full h-full object-contain drop-shadow-md" />
             </div>
             Kyro
           </div>
